@@ -93,28 +93,35 @@
 15. Print detail modal (Frame This Print, More Like This, Not This)
 16. E2E test suite (58 tests, xUnit + WebApplicationFactory + MockOpenAIHandler)
 17. Deployment pipeline (Makefile with rsync + web.config touch for app pool recycle)
+18. Art print vendors: Sundance Graphics (15), Wild Apple (15), World Art Group (15) — 45 total prints
+19. Training admin Art Prints tab: Seed button, Add Vendor form, Add Print form, Vendor list table
+20. In-app User Guide (`/Home/Guide`) — step-by-step walkthroughs for all app sections
 
-## Current Status (Last Updated: 2026-02-28)
+## Current Status (Last Updated: 2026-03-01)
 
 ### What's Working in Production (ai.framevue.com)
 - Full app deployed and running on IIS
-- Art print browse with 15 Sundance Graphics prints (seeded)
+- 3 art print vendors seeded: Sundance Graphics, Wild Apple, World Art Group (45 prints total)
 - Moulding/mat catalog imported: 58 vendors, 37,077 mouldings, 7,273 mats
 - Searchable combo box filters on all browse dropdowns (type to search + click to select)
 - Art print discovery wizard (Room -> Mood -> Colors -> Style -> Results)
-- SQLite DB path fixed to use absolute path (was failing in IIS due to relative path resolution)
+- Training admin Art Prints tab: Seed, Add Vendor, Add Print, Vendor list
+- User Guide page at `/Home/Guide` with walkthroughs for all sections
+- SQLite DB path fixed to use absolute path for IIS compatibility
 - Knowledge base loaded: 18 rules, 13 style guides, 6 examples, 5 vendors
 
 ### Where We Left Off
-- Fixed production SQLite database issue (relative path `Data Source=frameVue.db` didn't resolve correctly in IIS in-process hosting — changed to absolute path using `ContentRootPath`)
-- Successfully deployed, seeded art prints, and imported catalog on production
-- All production endpoints verified working (BrowseArtPrints, ArtPrintFilters, DiscoverPrints)
+- Added Wild Apple and World Art Group vendors with 15 sample prints each
+- Updated Training admin UI — replaced old SQL Server import with Seed/AddVendor/AddPrint
+- Created in-app User Guide accessible from main nav
+- All deployed and verified on production
 
 ### What Needs to Be Done Next
-1. **Add more art print vendors** — Wild Apple, Galaxy of Graphics, Artissimo Designs, MHS Licensing (S3 folder paths need to be confirmed)
-2. **Run AI enrichment on art prints** — populate color/mood/style/description fields (currently null) for better discovery filtering
-3. **Update Training admin UI** — Art Prints tab still shows old "Import from SQL Server" UI; needs seed button and vendor/print add forms
-4. **Test searchable combo boxes in browser** — verified via API but need manual browser testing of the ComboBox UX
+1. **Run AI enrichment on art prints** — populate color/mood/style/description fields (currently null) for better discovery filtering
+2. **Color temperature / lighting plan** — handle art photos taken in different lighting vs mat/moulding photos in studio lighting; need color normalization strategy
+3. **S3 image accessibility** — S3 bucket is private (403 on all requests); need to either make art print images public, add CloudFront, or build a server-side image proxy
+4. **Add more prints per vendor** — currently 15 each, use admin CRUD to add more over time
+5. **Browser testing** — manual testing of ComboBox filters and browse UI in production browser
 
 ## User Preferences
 - Target users: gifted framers who are NOT tech-savvy (hence voice dictation, large tap targets)

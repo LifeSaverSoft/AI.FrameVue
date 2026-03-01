@@ -32,6 +32,11 @@ public class HomeController : Controller
         return View();
     }
 
+    public IActionResult Guide()
+    {
+        return View();
+    }
+
     [HttpGet]
     public IActionResult StyleCount()
     {

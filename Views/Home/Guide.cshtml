@@ -1,0 +1,565 @@
+@{
+    ViewData["Title"] = "User Guide";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI FrameVue - User Guide</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #14141f;
+            --bg-card: #1a1a2e;
+            --text-primary: #e8e6e3;
+            --text-secondary: #9b9b9b;
+            --accent: #c9a84c;
+            --accent-light: #dbb960;
+            --border: #2a2a3e;
+            --success: #4caf50;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+        }
+        .guide-header {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-card) 100%);
+            border-bottom: 2px solid var(--accent);
+            padding: 2rem 2rem 1.5rem;
+            text-align: center;
+        }
+        .guide-header h1 {
+            font-family: 'Playfair Display', serif;
+            color: var(--accent);
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        .guide-header p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+        .guide-header .back-link {
+            display: inline-block;
+            margin-top: 1rem;
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 0.85rem;
+        }
+        .guide-header .back-link:hover { text-decoration: underline; }
+        .guide-nav {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            padding: 1rem 2rem;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .guide-nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .guide-nav a:hover, .guide-nav a.active {
+            background: var(--accent);
+            color: var(--bg-primary);
+        }
+        .guide-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .guide-section {
+            margin-bottom: 3rem;
+            scroll-margin-top: 70px;
+        }
+        .guide-section h2 {
+            font-family: 'Playfair Display', serif;
+            color: var(--accent);
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .guide-section .section-intro {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+            font-style: italic;
+        }
+        .step {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1rem;
+            position: relative;
+            padding-left: 3.5rem;
+        }
+        .step-number {
+            position: absolute;
+            left: 1rem;
+            top: 1.25rem;
+            width: 28px;
+            height: 28px;
+            background: var(--accent);
+            color: var(--bg-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.8rem;
+        }
+        .step h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+        }
+        .step p {
+            color: var(--text-secondary);
+            font-size: 0.88rem;
+        }
+        .tip {
+            background: rgba(201, 168, 76, 0.08);
+            border-left: 3px solid var(--accent);
+            padding: 0.75rem 1rem;
+            margin: 1rem 0;
+            border-radius: 0 6px 6px 0;
+            font-size: 0.85rem;
+        }
+        .tip strong { color: var(--accent); }
+        .role-badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+        .role-framer { background: rgba(76, 175, 80, 0.15); color: #4caf50; }
+        .role-admin { background: rgba(201, 168, 76, 0.15); color: var(--accent); }
+        .role-customer { background: rgba(100, 149, 237, 0.15); color: #6495ed; }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        .feature-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+        .feature-card h4 {
+            color: var(--accent);
+            font-size: 0.9rem;
+            margin-bottom: 0.4rem;
+        }
+        .feature-card p {
+            color: var(--text-secondary);
+            font-size: 0.82rem;
+        }
+        kbd {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 0.1rem 0.4rem;
+            font-size: 0.8rem;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="guide-header">
+        <h1>AI FrameVue User Guide</h1>
+        <p>Everything you need to know to get the most out of AI-powered custom framing</p>
+        <a href="/" class="back-link">&larr; Back to App</a>
+    </div>
+
+    <nav class="guide-nav">
+        <a href="#overview">Overview</a>
+        <a href="#frame-my-art">Frame My Art</a>
+        <a href="#browse-prints">Browse Prints</a>
+        <a href="#find-art">Find Art</a>
+        <a href="#comparison">Compare & Choose</a>
+        <a href="#wall-preview">Wall Preview</a>
+        <a href="#training-admin">Training Admin</a>
+        <a href="#tips">Tips & Tricks</a>
+    </nav>
+
+    <div class="guide-content">
+
+        <!-- OVERVIEW -->
+        <section class="guide-section" id="overview">
+            <h2>What is AI FrameVue?</h2>
+            <p style="margin-bottom: 1rem;">
+                AI FrameVue is an AI-powered custom framing advisor built for professional framers. Upload any piece of artwork, and the AI analyzes its style, colors, mood, and medium to generate expert-level framing recommendations — complete with photorealistic mockups of the finished piece.
+            </p>
+            <p style="margin-bottom: 1rem;">
+                The app is designed for <strong>gifted framers who know their craft</strong> but want AI assistance to speed up the design process, explore creative options, and present professional mockups to customers.
+            </p>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>Frame My Art</h4>
+                    <p>Upload artwork for AI analysis and get 3-tier framing recommendations (Good / Better / Best) with mockup images.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Browse Art Prints</h4>
+                    <p>Search the art print catalog by vendor, artist, genre, style, and more. All filters are searchable — type to find or pick from a list.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Help Me Find Art</h4>
+                    <p>A guided discovery wizard that helps customers find the perfect print by room, mood, color preference, and style.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Training Admin</h4>
+                    <p>Manage the AI's knowledge base — framing rules, style guides, training examples — plus catalog import and art print management.</p>
+                </div>
+            </div>
+
+            <div class="tip">
+                <strong>Who uses what?</strong> Framers use "Frame My Art" daily with customers. "Browse Prints" and "Find Art" help customers choose art. "Training Admin" is for shop owners/managers to fine-tune the AI.
+            </div>
+        </section>
+
+        <!-- FRAME MY ART -->
+        <section class="guide-section" id="frame-my-art">
+            <h2>Frame My Art</h2>
+            <p class="section-intro">The core feature — upload artwork and get AI-generated framing recommendations with photorealistic mockups.</p>
+            <span class="role-badge role-framer">For Framers</span>
+            <span class="role-badge role-customer">For Customers</span>
+
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>Select "Frame My Art" Mode</h3>
+                <p>From the home screen, click the <strong>Frame My Art</strong> button. This is the default mode when you first open the app.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>Upload Your Artwork</h3>
+                <p>Click <strong>"Choose artwork to frame"</strong> or drag and drop an image file onto the upload area. Supports JPG, PNG, and WEBP up to 20 MB. For best results, use a well-lit, square-on photo of the artwork without the existing frame.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>Add Context (Optional)</h3>
+                <p>Before analyzing, you can add context like <em>"This is going in a modern living room"</em> or <em>"Customer prefers warm tones."</em> This helps the AI tailor recommendations. You can type or use the <strong>microphone button</strong> to dictate.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">4</div>
+                <h3>Click "Analyze & Recommend"</h3>
+                <p>The AI performs a <strong>two-pass analysis</strong>: first it detects the art style, medium, mood, dominant colors, and era. Then it consults the knowledge base of framing rules and generates 3-tier recommendations (Good / Better / Best). This takes about 10-15 seconds.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">5</div>
+                <h3>Review the Recommendations</h3>
+                <p>You'll see three framed mockup cards — <strong>Good</strong> (affordable), <strong>Better</strong> (mid-range), and <strong>Best</strong> (premium). Each card shows the mockup image, moulding vendor and description, mat recommendation, and the AI's reasoning for why this combination works with the artwork.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">6</div>
+                <h3>Compare Options</h3>
+                <p>Click <strong>"Compare All"</strong> to see all three options side-by-side. This makes it easy to show a customer their choices and discuss the differences in moulding quality, mat pairing, and overall look.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">7</div>
+                <h3>Give Feedback</h3>
+                <p>Rate each recommendation with thumbs up/down and mark which one the customer chose. This feedback trains the AI to make better recommendations over time.</p>
+            </div>
+
+            <div class="tip">
+                <strong>Pro Tip:</strong> If you don't love an option, click the <strong>regenerate button</strong> on that specific card to get a new recommendation for just that tier — you don't have to start over.
+            </div>
+        </section>
+
+        <!-- BROWSE ART PRINTS -->
+        <section class="guide-section" id="browse-prints">
+            <h2>Browse Art Prints</h2>
+            <p class="section-intro">Search and filter the art print catalog from Sundance Graphics, Wild Apple, and World Art Group.</p>
+            <span class="role-badge role-framer">For Framers</span>
+            <span class="role-badge role-customer">For Customers</span>
+
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>Select "Browse Art Prints" Mode</h3>
+                <p>Click the <strong>Browse Art Prints</strong> button from the home screen to switch to catalog browsing mode.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>Use the Filters</h3>
+                <p>All filter dropdowns are <strong>searchable</strong> — start typing to narrow the list, or click to see all options. Available filters: Vendor, Artist, Genre, Style, Mood, and Orientation. You can combine multiple filters.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>Type to Search</h3>
+                <p>Use the search box to find prints by keyword — it searches titles, artists, and subject matter. Combine with filters for precise results.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">4</div>
+                <h3>Click a Print for Details</h3>
+                <p>Click any print card to open the <strong>detail modal</strong> showing full information: title, artist, vendor, genre, dimensions, and a larger image. From here you can:</p>
+                <p style="margin-top: 0.5rem;">
+                    &bull; <strong>Frame This Print</strong> — jumps to Frame My Art mode with this print loaded<br/>
+                    &bull; <strong>More Like This</strong> — finds similar prints based on style/genre/artist<br/>
+                    &bull; <strong>Not This</strong> — helps refine preferences
+                </p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">5</div>
+                <h3>Active Filter Chips</h3>
+                <p>When filters are applied, you'll see gold chips showing each active filter. Click the <strong>X</strong> on any chip to remove that filter. This makes it easy to see what's filtering your results.</p>
+            </div>
+
+            <div class="tip">
+                <strong>Why use this?</strong> When a customer comes in wanting new art, you can browse the catalog together, find something they love, then immediately jump to "Frame This Print" to see how it looks framed.
+            </div>
+        </section>
+
+        <!-- HELP ME FIND ART -->
+        <section class="guide-section" id="find-art">
+            <h2>Help Me Find Art (Discovery Wizard)</h2>
+            <p class="section-intro">A guided experience that helps customers who don't know what they want find the perfect art print.</p>
+            <span class="role-badge role-customer">For Customers</span>
+            <span class="role-badge role-framer">For Framers</span>
+
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>Select "Help Me Find Art" Mode</h3>
+                <p>Click the <strong>Help Me Find Art</strong> button from the home screen. This launches the discovery wizard.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>Choose the Room</h3>
+                <p>Select where the art will hang — Living Room, Bedroom, Office, Dining Room, etc. This sets the context for recommendations.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>Pick a Mood</h3>
+                <p>Select the feeling the customer wants — Calm, Energetic, Sophisticated, Cozy, Dramatic, Playful, etc. This narrows results to art that evokes the right emotion.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">4</div>
+                <h3>Select Color Preferences</h3>
+                <p>Choose preferred color tones — warm, cool, neutral, bold, pastel, etc. The AI uses this to match prints by their actual color analysis.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">5</div>
+                <h3>Choose a Style</h3>
+                <p>Pick an art style — Contemporary, Traditional, Abstract, Impressionist, Minimalist, etc. This is the final filter before results.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">6</div>
+                <h3>Review Curated Results</h3>
+                <p>The wizard shows prints matching all your criteria. Click any print to see details, frame it, or find similar options.</p>
+            </div>
+
+            <div class="tip">
+                <strong>When to use this:</strong> Perfect for customers who walk in saying <em>"I need something for my bedroom, but I don't know what."</em> Walk them through the wizard and let the AI do the curating.
+            </div>
+        </section>
+
+        <!-- COMPARISON -->
+        <section class="guide-section" id="comparison">
+            <h2>Compare & Choose</h2>
+            <p class="section-intro">Side-by-side comparison of framing options to help customers make confident decisions.</p>
+            <span class="role-badge role-framer">For Framers</span>
+
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>Generate Recommendations First</h3>
+                <p>Use "Frame My Art" to analyze artwork and generate Good/Better/Best recommendations.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>Click "Compare All"</h3>
+                <p>Opens a side-by-side view of all three tiers showing the mockup, moulding details, mat details, and reasoning. Great for presenting options on a tablet or large screen.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>Regenerate Individual Options</h3>
+                <p>If a customer doesn't love one tier, click the <strong>regenerate</strong> button on just that card to get a fresh recommendation without losing the others.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">4</div>
+                <h3>Record the Choice</h3>
+                <p>Mark which option the customer selected. Rate each option. Add comments. This data trains the AI to make better recommendations in the future.</p>
+            </div>
+        </section>
+
+        <!-- WALL PREVIEW -->
+        <section class="guide-section" id="wall-preview">
+            <h2>Wall Preview</h2>
+            <p class="section-intro">See how the framed artwork looks on an actual wall — drag it around, resize, and get AI-refined room scenes.</p>
+            <span class="role-badge role-framer">For Framers</span>
+            <span class="role-badge role-customer">For Customers</span>
+
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>Upload a Wall Photo</h3>
+                <p>After generating a framing recommendation, click <strong>"Preview on Wall"</strong>. Upload a photo of the actual wall where the art will hang — take it with your phone.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>Position the Framed Art</h3>
+                <p><strong>Drag</strong> the framed mockup to position it on the wall. The overlay is semi-transparent so you can see placement against furniture and other elements.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>AI Wall Refine</h3>
+                <p>Click <strong>"AI Refine"</strong> to have the AI generate a photorealistic rendering of the art on the wall, matching lighting, perspective, and shadows for a natural look.</p>
+            </div>
+
+            <div class="tip">
+                <strong>Selling tip:</strong> Take a photo of the customer's wall with your phone, upload it, and show them their chosen frame on their actual wall. This closes sales — seeing it "in situ" removes doubt.
+            </div>
+        </section>
+
+        <!-- TRAINING ADMIN -->
+        <section class="guide-section" id="training-admin">
+            <h2>Training Admin</h2>
+            <p class="section-intro">For shop owners and managers — fine-tune the AI's knowledge base, manage the catalog, and maintain art print data.</p>
+            <span class="role-badge role-admin">For Admins</span>
+
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>Access the Training Page</h3>
+                <p>Navigate to <kbd>/Training</kbd> and enter the admin key. This page is separate from the main app and not visible to customers.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>Framing Rules Tab</h3>
+                <p>Add, edit, or remove framing rules that guide the AI. Rules like <em>"Oil paintings on canvas always look best with a deep profile frame"</em> or <em>"Watercolors need UV-protective glazing."</em> The more specific your rules, the better the AI's recommendations.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>Style Guides Tab</h3>
+                <p>Define how different art styles should be framed. The AI references these when analyzing uploaded artwork. Include vendor preferences, mat color recommendations, and moulding profiles for each style.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">4</div>
+                <h3>Training Examples Tab</h3>
+                <p>Add real examples of great framing jobs. Describe the art, what frame/mat was used, and why. These examples help the AI learn from your shop's expertise.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">5</div>
+                <h3>Catalog Tab</h3>
+                <p>Import mouldings and mats from the vendor catalog (SQL Server). View import stats, browse the catalog, and run AI image analysis to enrich catalog items with color and material data.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">6</div>
+                <h3>Art Prints Tab</h3>
+                <p>Manage art print vendors and prints:</p>
+                <p style="margin-top: 0.5rem;">
+                    &bull; <strong>Seed Art Prints</strong> — loads the built-in catalog (Sundance, Wild Apple, World Art Group)<br/>
+                    &bull; <strong>Add Vendor</strong> — register a new art print vendor with S3 image configuration<br/>
+                    &bull; <strong>Add Print</strong> — add individual prints to the catalog<br/>
+                    &bull; <strong>AI Enrichment</strong> — analyze print images to populate color, mood, and style data for better filtering and discovery
+                </p>
+            </div>
+
+            <div class="tip">
+                <strong>Why train the AI?</strong> Every framing shop has its own expertise, vendor relationships, and style preferences. The knowledge base lets you encode <em>your</em> expertise so the AI recommends frames the way <em>you</em> would — but faster.
+            </div>
+        </section>
+
+        <!-- TIPS & TRICKS -->
+        <section class="guide-section" id="tips">
+            <h2>Tips & Tricks</h2>
+            <p class="section-intro">Get the most out of AI FrameVue with these expert tips.</p>
+
+            <div class="step">
+                <div class="step-number">&#9733;</div>
+                <h3>Use Voice Dictation</h3>
+                <p>Every text input in the admin area has a <strong>microphone button</strong>. Click it and speak your framing rules, style guides, or context instead of typing. Great for framers who are more comfortable talking than typing.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">&#9733;</div>
+                <h3>Better Photos = Better Results</h3>
+                <p>The AI works best with well-lit, square-on photos of the artwork. Avoid glare, shadows, and extreme angles. If the art is already framed, crop out the existing frame if possible.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">&#9733;</div>
+                <h3>Use Context Generously</h3>
+                <p>The more context you provide, the better the recommendations. <em>"Modern condo, white walls, mid-century furniture"</em> gets very different results from <em>"Traditional home, dark wood, formal dining room."</em></p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">&#9733;</div>
+                <h3>Feedback Makes It Smarter</h3>
+                <p>Always rate recommendations and mark the customer's choice. Over time, the AI learns what works for your shop's clientele and style.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">&#9733;</div>
+                <h3>Searchable Filters</h3>
+                <p>All dropdown filters in Browse Art Prints let you <strong>type to search</strong>. If you know the artist's name, just start typing — no need to scroll through a long list.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">&#9733;</div>
+                <h3>Frame This Print</h3>
+                <p>Found a print a customer loves? Click <strong>"Frame This Print"</strong> from the detail modal to instantly generate framing recommendations for it — seamless workflow from browsing to framing.</p>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        // Highlight active nav item on scroll
+        const sections = document.querySelectorAll('.guide-section');
+        const navLinks = document.querySelectorAll('.guide-nav a');
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(section => {
+                if (window.scrollY >= section.offsetTop - 100) current = section.id;
+            });
+            navLinks.forEach(link => {
+                link.classList.toggle('active', link.getAttribute('href') === '#' + current);
+            });
+        });
+    </script>
+</body>
+</html>
