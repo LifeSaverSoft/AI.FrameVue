@@ -96,12 +96,15 @@
 18. Art print vendors: Sundance Graphics (15), Wild Apple (15), World Art Group (15) — 45 total prints
 19. Training admin Art Prints tab: Seed button, Add Vendor form, Add Print form, Vendor list table
 20. In-app User Guide (`/Home/Guide`) — step-by-step walkthroughs for all app sections
+21. Color/lighting normalization: Layers 1, 2, 4 implemented (AI lighting detection, user lighting hint, prompt awareness)
+22. Art print card placeholders — styled fallback when S3 images unavailable
+23. AI art print enrichment — all 45 prints enriched with colors, moods, styles, descriptions (metadata-based fallback for private S3)
 
 ## Current Status (Last Updated: 2026-03-01)
 
 ### What's Working in Production (ai.framevue.com)
 - Full app deployed and running on IIS
-- 3 art print vendors seeded: Sundance Graphics, Wild Apple, World Art Group (45 prints total)
+- 3 art print vendors seeded: Sundance Graphics, Wild Apple, World Art Group (45 prints total, all AI-enriched)
 - Moulding/mat catalog imported: 58 vendors, 37,077 mouldings, 7,273 mats
 - Searchable combo box filters on all browse dropdowns (type to search + click to select)
 - Art print discovery wizard (Room -> Mood -> Colors -> Style -> Results)
@@ -109,18 +112,21 @@
 - User Guide page at `/Home/Guide` with walkthroughs for all sections
 - SQLite DB path fixed to use absolute path for IIS compatibility
 - Knowledge base loaded: 18 rules, 13 style guides, 6 examples, 5 vendors
+- Color/lighting normalization: Pass 1 detects lighting condition and estimates true colors; Pass 2 uses true colors for recommendations
+- Photo Lighting selector in upload form (optional user hint: daylight/incandescent/fluorescent/flash/mixed)
+- Color matching uses estimatedTrueColors when color cast detected
+- Art print cards show styled placeholders with title/artist/genre when S3 images unavailable
 
 ### Where We Left Off
-- Added Wild Apple and World Art Group vendors with 15 sample prints each
-- Updated Training admin UI — replaced old SQL Server import with Seed/AddVendor/AddPrint
-- Created in-app User Guide accessible from main nav
-- All deployed and verified on production
+- Implemented color normalization Layers 1, 2, 4 (AI detection, user hint, prompt awareness)
+- Art print cards now show styled placeholders when S3 images return 403
+- All deployed and verified on production (ai.framevue.com returns 200, browse returns 45 prints)
 
 ### What Needs to Be Done Next
-1. **S3 image accessibility** — S3 bucket is private (403 on all requests); need to either make art print images public, add CloudFront, or build a server-side image proxy. Art print thumbnails won't display in the browser until this is resolved.
-2. **Implement color normalization** — plan documented in `Docs/color-normalization-plan.md`. Layer 1 (AI lighting detection) and Layer 4 (prompt awareness) are quick wins.
+1. **S3 image accessibility** — S3 bucket is private (403 on ALL requests, both mouldings and art prints); need AWS credentials or bucket policy change. No images display in browser currently.
+2. **Color normalization Layer 3** — server-side RGB channel normalization as fallback (documented in `Docs/color-normalization-plan.md`)
 3. **Add more prints per vendor** — currently 15 each, use admin CRUD to add more over time
-4. **Browser testing** — manual testing of ComboBox filters and browse UI in production browser
+4. **Browser testing** — manual testing of ComboBox filters, browse UI, and lighting selector in production
 
 ## User Preferences
 - Target users: gifted framers who are NOT tech-savvy (hence voice dictation, large tap targets)
