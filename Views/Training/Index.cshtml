@@ -692,23 +692,67 @@
 
             <!-- === ART PRINTS === -->
             <div id="artprintsSection" class="section">
-                <!-- Import -->
+                <!-- Seed Art Prints -->
                 <div class="add-form">
-                    <h3>Import Art Prints from SQL Server</h3>
+                    <h3>Seed Art Prints</h3>
                     <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.85rem;">
-                        Imports art print vendors and prints from SQL Server ArtPrintVendor / ArtPrint tables.
-                        This replaces all existing art print data in the local database.
+                        Seeds built-in art print vendors and prints into the local database.
+                        Clears and replaces all existing art print data.
                     </p>
-                    <div class="form-group">
-                        <label>SQL Server Connection String</label>
-                        <div id="apConnStrSaved" class="hidden" style="display:none; align-items:center; gap:0.75rem; margin-bottom:0.5rem;">
-                            <span style="color:var(--success); font-size:0.85rem;" id="apConnStrDisplay">Saved connection configured</span>
-                            <button class="btn btn-small" style="background:var(--bg-secondary); color:var(--text-secondary); border:1px solid var(--border);" onclick="document.getElementById('apConnStrSaved').style.display='none'; document.getElementById('apCatalogConnStr').style.display='';">Change</button>
-                        </div>
-                        <input type="text" id="apCatalogConnStr" placeholder="Server=myserver;Database=LifeSaverVendor;..." />
+                    <button class="btn btn-primary" id="seedArtPrintsBtn" onclick="seedArtPrints()">Seed Art Prints</button>
+                    <span id="apSeedStatus" style="margin-left: 1rem; font-size: 0.85rem; color: var(--text-secondary);"></span>
+                </div>
+
+                <!-- Add Art Print Vendor -->
+                <div class="add-form" style="margin-top: 1.5rem;">
+                    <h3>Add Art Print Vendor</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.85rem;">
+                        Add a new art print vendor. Use <code>{filename}</code> in the image path pattern as a placeholder.
+                    </p>
+                    <div class="form-row">
+                        <div class="form-group"><label>Vendor Name</label><input type="text" id="apVendorName" placeholder="e.g., Wild Apple" /></div>
+                        <div class="form-group"><label>Code</label><input type="text" id="apVendorCode" placeholder="e.g., WILDAPPLE" /></div>
                     </div>
-                    <button class="btn btn-primary" id="importArtPrintsBtn" onclick="importArtPrints()">Import Art Prints</button>
-                    <span id="apImportStatus" style="margin-left: 1rem; font-size: 0.85rem; color: var(--text-secondary);"></span>
+                    <div class="form-row">
+                        <div class="form-group"><label>Image Base URL</label><input type="text" id="apVendorBaseUrl" value="https://lifesaversoft.s3.amazonaws.com" /></div>
+                        <div class="form-group"><label>Image Path Pattern</label><input type="text" id="apVendorPathPattern" placeholder="Art Print Images/Vendor Name/{filename}" /></div>
+                    </div>
+                    <div class="form-group"><label>Website (optional)</label><input type="text" id="apVendorWebsite" placeholder="https://..." /></div>
+                    <button class="btn btn-primary" onclick="addArtPrintVendor()">Add Vendor</button>
+                    <span id="apVendorStatus" style="margin-left: 1rem; font-size: 0.85rem; color: var(--text-secondary);"></span>
+                </div>
+
+                <!-- Vendor List -->
+                <div class="add-form" style="margin-top: 1.5rem;">
+                    <h3>Art Print Vendors</h3>
+                    <div id="apVendorList" style="font-size: 0.85rem; color: var(--text-secondary);">Loading...</div>
+                </div>
+
+                <!-- Add Individual Art Print -->
+                <div class="add-form" style="margin-top: 1.5rem;">
+                    <h3>Add Art Print</h3>
+                    <div class="form-row">
+                        <div class="form-group"><label>Vendor</label><select id="apPrintVendor"><option value="">Select vendor...</option></select></div>
+                        <div class="form-group"><label>Item Number</label><input type="text" id="apPrintItemNum" placeholder="e.g., 14321CF" /></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Title</label><input type="text" id="apPrintTitle" placeholder="Print title" /></div>
+                        <div class="form-group"><label>Artist</label><input type="text" id="apPrintArtist" placeholder="Artist name" /></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Genre</label><input type="text" id="apPrintGenre" placeholder="e.g., Floral, Landscape" /></div>
+                        <div class="form-group"><label>Style</label><input type="text" id="apPrintStyle" placeholder="e.g., Contemporary, Impressionist" /></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Medium</label><input type="text" id="apPrintMedium" placeholder="e.g., Acrylic, Oil" /></div>
+                        <div class="form-group"><label>Category</label><input type="text" id="apPrintCategory" placeholder="e.g., Botanical, Nature" /></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Subject Matter</label><input type="text" id="apPrintSubject" placeholder="Brief description of subject" /></div>
+                        <div class="form-group"><label>Orientation</label><select id="apPrintOrientation"><option value="">Auto</option><option>Portrait</option><option>Landscape</option><option>Square</option></select></div>
+                    </div>
+                    <button class="btn btn-primary" onclick="addArtPrint()">Add Print</button>
+                    <span id="apPrintStatus" style="margin-left: 1rem; font-size: 0.85rem; color: var(--text-secondary);"></span>
                 </div>
 
                 <!-- Enrichment -->
@@ -842,12 +886,12 @@
             loadCatalogStats();
             loadArtPrintStats();
             checkCatalogConnection();
-            checkArtPrintConnection();
             loadEnrichmentStatus();
             loadRules();
             loadStyleGuides();
             loadExamples();
             initComboboxes();
+            loadArtPrintVendors();
         }
 
         async function loadStats() {
@@ -1608,51 +1652,136 @@
             } catch {}
         }
 
-        async function checkArtPrintConnection() {
-            try {
-                const res = await fetch('/Training/CatalogConnectionStatus');
-                const data = await res.json();
-                if (data.configured) {
-                    document.getElementById('apConnStrSaved').style.display = 'flex';
-                    document.getElementById('apConnStrDisplay').textContent = data.display || 'Saved connection configured';
-                    document.getElementById('apCatalogConnStr').style.display = 'none';
-                }
-            } catch {}
-        }
-
-        async function importArtPrints() {
-            const connStr = document.getElementById('apCatalogConnStr').value;
-            const btn = document.getElementById('importArtPrintsBtn');
-            const status = document.getElementById('apImportStatus');
+        async function seedArtPrints() {
+            const btn = document.getElementById('seedArtPrintsBtn');
+            const status = document.getElementById('apSeedStatus');
             btn.disabled = true;
-            btn.textContent = 'Importing...';
-            status.textContent = 'This may take a few minutes...';
+            btn.textContent = 'Seeding...';
+            status.textContent = 'Seeding art print vendors and prints...';
             status.style.color = 'var(--text-secondary)';
-
             try {
-                const res = await fetch('/Training/ImportArtPrints', {
+                const res = await fetch('/Training/SeedArtPrints', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ adminKey, sqlServerConnection: connStr })
+                    body: JSON.stringify({ adminKey })
                 });
                 const result = await res.json();
                 if (result.success) {
-                    showToast(`Imported ${result.artPrintVendorsImported} vendors, ${result.artPrintsImported} art prints`);
-                    status.textContent = `Last import: ${result.artPrintVendorsImported}V / ${result.artPrintsImported} prints`;
+                    showToast(`Seeded ${result.artPrintVendorsImported} vendors, ${result.artPrintsImported} art prints`);
+                    status.textContent = `Seeded: ${result.artPrintVendorsImported} vendors, ${result.artPrintsImported} prints`;
                     loadArtPrintStats();
-                    loadCatalogStats();
                     loadEnrichmentStatus();
+                    loadArtPrintVendors();
                 } else {
                     status.textContent = `Error: ${result.error}`;
                     status.style.color = 'var(--danger)';
                 }
             } catch (e) {
-                status.textContent = `Connection error: ${e.message}`;
+                status.textContent = `Error: ${e.message}`;
                 status.style.color = 'var(--danger)';
             } finally {
                 btn.disabled = false;
-                btn.textContent = 'Import Art Prints';
+                btn.textContent = 'Seed Art Prints';
             }
+        }
+
+        async function loadArtPrintVendors() {
+            try {
+                const res = await fetch('/Training/ArtPrintVendors');
+                const vendors = await res.json();
+                const list = document.getElementById('apVendorList');
+                const select = document.getElementById('apPrintVendor');
+                if (!vendors.length) {
+                    list.innerHTML = '<em>No vendors yet. Seed or add one above.</em>';
+                    return;
+                }
+                list.innerHTML = '<table style="width:100%; border-collapse:collapse;">' +
+                    '<tr style="border-bottom:1px solid var(--border); color:var(--accent); font-size:0.8rem;">' +
+                    '<th style="text-align:left; padding:0.4rem;">Name</th><th style="text-align:left; padding:0.4rem;">Code</th>' +
+                    '<th style="text-align:left; padding:0.4rem;">S3 Path</th><th style="text-align:left; padding:0.4rem;">Active</th></tr>' +
+                    vendors.map(v => '<tr style="border-bottom:1px solid var(--bg-secondary);">' +
+                        '<td style="padding:0.4rem;">' + v.name + '</td>' +
+                        '<td style="padding:0.4rem; color:var(--text-secondary);">' + v.code + '</td>' +
+                        '<td style="padding:0.4rem; color:var(--text-secondary); font-size:0.8rem;">' + (v.imagePathPattern || '-') + '</td>' +
+                        '<td style="padding:0.4rem;">' + (v.isActive ? '&#x2713;' : '&#x2717;') + '</td></tr>').join('') +
+                    '</table>';
+                // Populate vendor select for add print form
+                select.innerHTML = '<option value="">Select vendor...</option>' +
+                    vendors.map(v => '<option value="' + v.id + '" data-name="' + v.name + '">' + v.name + ' (' + v.code + ')</option>').join('');
+            } catch {}
+        }
+
+        async function addArtPrintVendor() {
+            const status = document.getElementById('apVendorStatus');
+            const data = {
+                adminKey,
+                name: document.getElementById('apVendorName').value,
+                code: document.getElementById('apVendorCode').value,
+                imageBaseUrl: document.getElementById('apVendorBaseUrl').value,
+                imagePathPattern: document.getElementById('apVendorPathPattern').value,
+                website: document.getElementById('apVendorWebsite').value
+            };
+            if (!data.name || !data.code) { status.textContent = 'Name and code are required.'; status.style.color = 'var(--danger)'; return; }
+            try {
+                const res = await fetch('/Training/AddArtPrintVendor', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showToast('Vendor added: ' + data.name);
+                    status.textContent = 'Added!';
+                    status.style.color = 'var(--success)';
+                    document.getElementById('apVendorName').value = '';
+                    document.getElementById('apVendorCode').value = '';
+                    document.getElementById('apVendorPathPattern').value = '';
+                    document.getElementById('apVendorWebsite').value = '';
+                    loadArtPrintVendors();
+                } else {
+                    status.textContent = result.error || 'Failed';
+                    status.style.color = 'var(--danger)';
+                }
+            } catch (e) { status.textContent = e.message; status.style.color = 'var(--danger)'; }
+        }
+
+        async function addArtPrint() {
+            const status = document.getElementById('apPrintStatus');
+            const vendorSelect = document.getElementById('apPrintVendor');
+            const vendorId = parseInt(vendorSelect.value);
+            const vendorName = vendorSelect.selectedOptions[0]?.dataset?.name || '';
+            if (!vendorId) { status.textContent = 'Select a vendor.'; status.style.color = 'var(--danger)'; return; }
+            const data = {
+                adminKey, vendorId, vendorName,
+                itemNumber: document.getElementById('apPrintItemNum').value,
+                title: document.getElementById('apPrintTitle').value,
+                artist: document.getElementById('apPrintArtist').value,
+                genre: document.getElementById('apPrintGenre').value,
+                style: document.getElementById('apPrintStyle').value,
+                medium: document.getElementById('apPrintMedium').value,
+                category: document.getElementById('apPrintCategory').value,
+                subjectMatter: document.getElementById('apPrintSubject').value,
+                orientation: document.getElementById('apPrintOrientation').value
+            };
+            if (!data.itemNumber || !data.title) { status.textContent = 'Item number and title are required.'; status.style.color = 'var(--danger)'; return; }
+            try {
+                const res = await fetch('/Training/AddArtPrint', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showToast('Print added: ' + data.title);
+                    status.textContent = 'Added!';
+                    status.style.color = 'var(--success)';
+                    ['apPrintItemNum','apPrintTitle','apPrintArtist','apPrintGenre','apPrintStyle','apPrintMedium','apPrintCategory','apPrintSubject'].forEach(id => document.getElementById(id).value = '');
+                    loadArtPrintStats();
+                } else {
+                    status.textContent = result.error || 'Failed';
+                    status.style.color = 'var(--danger)';
+                }
+            } catch (e) { status.textContent = e.message; status.style.color = 'var(--danger)'; }
         }
 
         async function startArtPrintEnrichment() {

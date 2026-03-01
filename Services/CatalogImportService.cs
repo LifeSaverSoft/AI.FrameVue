@@ -266,37 +266,103 @@ public class CatalogImportService
                 ImageBaseUrl = "https://lifesaversoft.s3.amazonaws.com",
                 ImagePathPattern = "Art Print Images/Sundance Graphics/{filename}",
                 IsActive = true
+            },
+            new()
+            {
+                Id = 2,
+                Name = "Wild Apple",
+                Code = "WILDAPPLE",
+                Website = "https://wildapple.com",
+                ImageBaseUrl = "https://lifesaversoft.s3.amazonaws.com",
+                ImagePathPattern = "Art Print Images/Wild Apple/{filename}",
+                IsActive = true
+            },
+            new()
+            {
+                Id = 3,
+                Name = "World Art Group",
+                Code = "WAG",
+                Website = "https://www.theworldartgroup.com",
+                ImageBaseUrl = "https://lifesaversoft.s3.amazonaws.com",
+                ImagePathPattern = "Art Print Images/World Art Group/{filename}",
+                IsActive = true
             }
         };
     }
 
     private List<CatalogArtPrint> GetSeedArtPrints(Dictionary<int, CatalogArtPrintVendor> vendorLookup)
     {
-        var sundance = vendorLookup[1];
-        var prints = new List<CatalogArtPrint>
-        {
-            new() { VendorId = 1, ItemNumber = "14321CF", Title = "Dream Hope Inspire", Artist = "Lanie Loreth", VendorName = sundance.Name, Genre = "Inspirational", Category = "Typography", SubjectMatter = "Motivational words", Style = "Contemporary", Medium = "Acrylic", IsActive = true },
-            new() { VendorId = 1, ItemNumber = "11046H", Title = "Misty Morning Horizon", Artist = "Patricia Pinto", VendorName = sundance.Name, Genre = "Landscape", Category = "Nature", SubjectMatter = "Misty atmospheric landscape", Style = "Impressionist", Medium = "Acrylic", ImageWidthIn = 27.00m, ImageHeightIn = 36.00m, Orientation = "Portrait", IsActive = true },
-            new() { VendorId = 1, ItemNumber = "10176", Title = "Floral Delicate II", Artist = "Lanie Loreth", VendorName = sundance.Name, Genre = "Floral", Category = "Botanical", SubjectMatter = "Delicate flowers with blue tones", Style = "Contemporary", Medium = "Acrylic", IsActive = true },
-            new() { VendorId = 1, ItemNumber = "11602J", Title = "Color Explosion I", Artist = "Kat Papa", VendorName = sundance.Name, Genre = "Abstract", Category = "Abstract", SubjectMatter = "Colorful abstract paint explosion", Style = "Abstract Expressionist", Medium = "Watercolor", IsActive = true },
-            new() { VendorId = 1, ItemNumber = "13141BB", Title = "Enjoy the Little Things", Artist = "SD Graphics Studio", VendorName = sundance.Name, Genre = "Inspirational", Category = "Typography", SubjectMatter = "Coffee themed motivational", Style = "Typography", Medium = "Ink/Digital", IsActive = true },
-            new() { VendorId = 1, ItemNumber = "11052BA", Title = "Indigo Watercolor Feather", Artist = "Patricia Pinto", VendorName = sundance.Name, Genre = "Decorative", Category = "Nature", SubjectMatter = "Feather in indigo watercolor tones", Style = "Decorative", Medium = "Watercolor", IsActive = true },
-            new() { VendorId = 1, ItemNumber = "13099H", Title = "New Green Palm Square", Artist = "Patricia Pinto", VendorName = sundance.Name, Genre = "Tropical", Category = "Botanical", SubjectMatter = "Palm leaves in green tones", Style = "Tropical", Medium = "Watercolor", ImageWidthIn = 12.00m, ImageHeightIn = 12.00m, Orientation = "Square", IsActive = true },
-            new() { VendorId = 1, ItemNumber = "PDX7973H", Title = "Gold Leaves I", Artist = "Patricia Pinto", VendorName = sundance.Name, Genre = "Botanical", Category = "Decorative", SubjectMatter = "Gold decorative leaves", Style = "Contemporary", Medium = "Acrylic", ImageWidthIn = 12.00m, ImageHeightIn = 12.00m, Orientation = "Square", IsActive = true },
-            new() { VendorId = 1, ItemNumber = "PDX9702", Title = "Beach Scene I", Artist = "Julie Derice", VendorName = sundance.Name, Genre = "Coastal", Category = "Beach", SubjectMatter = "Beach scene with ocean view", Style = "Realist", Medium = "Mixed Media", ImageWidthIn = 8.00m, ImageHeightIn = 10.00m, Orientation = "Portrait", IsActive = true },
-            new() { VendorId = 1, ItemNumber = "PDX10259L", Title = "Teal Succulent Vertical", Artist = "Susan Bryant", VendorName = sundance.Name, Genre = "Botanical", Category = "Plants", SubjectMatter = "Teal succulent plant close-up", Style = "Contemporary", Medium = "Photography/Mixed", ImageWidthIn = 24.00m, ImageHeightIn = 36.00m, Orientation = "Portrait", IsActive = true },
-            new() { VendorId = 1, ItemNumber = "PDX10357B", Title = "Stand Tall", Artist = "Susan Bryant", VendorName = sundance.Name, Genre = "Inspirational", Category = "Typography", SubjectMatter = "Typography with botanical elements", Style = "Typography", Medium = "Mixed Media", ImageWidthIn = 10.00m, ImageHeightIn = 14.00m, Orientation = "Portrait", IsActive = true },
-            new() { VendorId = 1, ItemNumber = "PDX9954", Title = "White Peonies II", Artist = "Jane Slivka", VendorName = sundance.Name, Genre = "Floral", Category = "Still Life", SubjectMatter = "White peony still life", Style = "Contemporary", Medium = "Mixed Media", ImageWidthIn = 11.00m, ImageHeightIn = 14.00m, Orientation = "Portrait", IsActive = true },
-            new() { VendorId = 1, ItemNumber = "PDX11687", Title = "Lost in Winter I", Artist = "Michael Marcon", VendorName = sundance.Name, Genre = "Landscape", Category = "Nature", SubjectMatter = "Winter landscape, atmospheric", Style = "Impressionist", Medium = "Acrylic", ImageWidthIn = 8.00m, ImageHeightIn = 24.00m, Orientation = "Portrait", IsActive = true },
-            new() { VendorId = 1, ItemNumber = "PDX9703", Title = "Beach Scene II", Artist = "Julie Derice", VendorName = sundance.Name, Genre = "Coastal", Category = "Beach", SubjectMatter = "Beach and ocean scene", Style = "Realist", Medium = "Mixed Media", ImageWidthIn = 24.00m, ImageHeightIn = 30.00m, Orientation = "Portrait", IsActive = true },
-            new() { VendorId = 1, ItemNumber = "8347D", Title = "Crazy Show II", Artist = "Michael Marcon", VendorName = sundance.Name, Genre = "Abstract", Category = "Abstract", SubjectMatter = "Colorful abstract composition", Style = "Abstract", Medium = "Acrylic", IsActive = true }
-        };
+        var prints = new List<CatalogArtPrint>();
 
-        // Build image URLs
+        // --- Sundance Graphics (Id=1) ---
+        var sundance = vendorLookup[1];
+        prints.AddRange(new[]
+        {
+            new CatalogArtPrint { VendorId = 1, ItemNumber = "14321CF", Title = "Dream Hope Inspire", Artist = "Lanie Loreth", VendorName = sundance.Name, Genre = "Inspirational", Category = "Typography", SubjectMatter = "Motivational words", Style = "Contemporary", Medium = "Acrylic", IsActive = true },
+            new CatalogArtPrint { VendorId = 1, ItemNumber = "11046H", Title = "Misty Morning Horizon", Artist = "Patricia Pinto", VendorName = sundance.Name, Genre = "Landscape", Category = "Nature", SubjectMatter = "Misty atmospheric landscape", Style = "Impressionist", Medium = "Acrylic", ImageWidthIn = 27.00m, ImageHeightIn = 36.00m, Orientation = "Portrait", IsActive = true },
+            new CatalogArtPrint { VendorId = 1, ItemNumber = "10176", Title = "Floral Delicate II", Artist = "Lanie Loreth", VendorName = sundance.Name, Genre = "Floral", Category = "Botanical", SubjectMatter = "Delicate flowers with blue tones", Style = "Contemporary", Medium = "Acrylic", IsActive = true },
+            new CatalogArtPrint { VendorId = 1, ItemNumber = "11602J", Title = "Color Explosion I", Artist = "Kat Papa", VendorName = sundance.Name, Genre = "Abstract", Category = "Abstract", SubjectMatter = "Colorful abstract paint explosion", Style = "Abstract Expressionist", Medium = "Watercolor", IsActive = true },
+            new CatalogArtPrint { VendorId = 1, ItemNumber = "13141BB", Title = "Enjoy the Little Things", Artist = "SD Graphics Studio", VendorName = sundance.Name, Genre = "Inspirational", Category = "Typography", SubjectMatter = "Coffee themed motivational", Style = "Typography", Medium = "Ink/Digital", IsActive = true },
+            new CatalogArtPrint { VendorId = 1, ItemNumber = "11052BA", Title = "Indigo Watercolor Feather", Artist = "Patricia Pinto", VendorName = sundance.Name, Genre = "Decorative", Category = "Nature", SubjectMatter = "Feather in indigo watercolor tones", Style = "Decorative", Medium = "Watercolor", IsActive = true },
+            new CatalogArtPrint { VendorId = 1, ItemNumber = "13099H", Title = "New Green Palm Square", Artist = "Patricia Pinto", VendorName = sundance.Name, Genre = "Tropical", Category = "Botanical", SubjectMatter = "Palm leaves in green tones", Style = "Tropical", Medium = "Watercolor", ImageWidthIn = 12.00m, ImageHeightIn = 12.00m, Orientation = "Square", IsActive = true },
+            new CatalogArtPrint { VendorId = 1, ItemNumber = "PDX7973H", Title = "Gold Leaves I", Artist = "Patricia Pinto", VendorName = sundance.Name, Genre = "Botanical", Category = "Decorative", SubjectMatter = "Gold decorative leaves", Style = "Contemporary", Medium = "Acrylic", ImageWidthIn = 12.00m, ImageHeightIn = 12.00m, Orientation = "Square", IsActive = true },
+            new CatalogArtPrint { VendorId = 1, ItemNumber = "PDX9702", Title = "Beach Scene I", Artist = "Julie Derice", VendorName = sundance.Name, Genre = "Coastal", Category = "Beach", SubjectMatter = "Beach scene with ocean view", Style = "Realist", Medium = "Mixed Media", ImageWidthIn = 8.00m, ImageHeightIn = 10.00m, Orientation = "Portrait", IsActive = true },
+            new CatalogArtPrint { VendorId = 1, ItemNumber = "PDX10259L", Title = "Teal Succulent Vertical", Artist = "Susan Bryant", VendorName = sundance.Name, Genre = "Botanical", Category = "Plants", SubjectMatter = "Teal succulent plant close-up", Style = "Contemporary", Medium = "Photography/Mixed", ImageWidthIn = 24.00m, ImageHeightIn = 36.00m, Orientation = "Portrait", IsActive = true },
+            new CatalogArtPrint { VendorId = 1, ItemNumber = "PDX10357B", Title = "Stand Tall", Artist = "Susan Bryant", VendorName = sundance.Name, Genre = "Inspirational", Category = "Typography", SubjectMatter = "Typography with botanical elements", Style = "Typography", Medium = "Mixed Media", ImageWidthIn = 10.00m, ImageHeightIn = 14.00m, Orientation = "Portrait", IsActive = true },
+            new CatalogArtPrint { VendorId = 1, ItemNumber = "PDX9954", Title = "White Peonies II", Artist = "Jane Slivka", VendorName = sundance.Name, Genre = "Floral", Category = "Still Life", SubjectMatter = "White peony still life", Style = "Contemporary", Medium = "Mixed Media", ImageWidthIn = 11.00m, ImageHeightIn = 14.00m, Orientation = "Portrait", IsActive = true },
+            new CatalogArtPrint { VendorId = 1, ItemNumber = "PDX11687", Title = "Lost in Winter I", Artist = "Michael Marcon", VendorName = sundance.Name, Genre = "Landscape", Category = "Nature", SubjectMatter = "Winter landscape, atmospheric", Style = "Impressionist", Medium = "Acrylic", ImageWidthIn = 8.00m, ImageHeightIn = 24.00m, Orientation = "Portrait", IsActive = true },
+            new CatalogArtPrint { VendorId = 1, ItemNumber = "PDX9703", Title = "Beach Scene II", Artist = "Julie Derice", VendorName = sundance.Name, Genre = "Coastal", Category = "Beach", SubjectMatter = "Beach and ocean scene", Style = "Realist", Medium = "Mixed Media", ImageWidthIn = 24.00m, ImageHeightIn = 30.00m, Orientation = "Portrait", IsActive = true },
+            new CatalogArtPrint { VendorId = 1, ItemNumber = "8347D", Title = "Crazy Show II", Artist = "Michael Marcon", VendorName = sundance.Name, Genre = "Abstract", Category = "Abstract", SubjectMatter = "Colorful abstract composition", Style = "Abstract", Medium = "Acrylic", IsActive = true }
+        });
+
+        // --- Wild Apple (Id=2) ---
+        var wildApple = vendorLookup[2];
+        prints.AddRange(new[]
+        {
+            new CatalogArtPrint { VendorId = 2, ItemNumber = "14920-a", Title = "Flower Power", Artist = "Michael Mullan", VendorName = wildApple.Name, Genre = "Floral", Category = "Botanical", SubjectMatter = "Bold colorful flower composition", Style = "Contemporary", Medium = "Acrylic", IsActive = true },
+            new CatalogArtPrint { VendorId = 2, ItemNumber = "29541-a", Title = "Sing Singing II", Artist = "Shirley Novak", VendorName = wildApple.Name, Genre = "Floral", Category = "Botanical", SubjectMatter = "Whimsical bird on floral branch", Style = "Decorative", Medium = "Mixed Media", IsActive = true },
+            new CatalogArtPrint { VendorId = 2, ItemNumber = "29542-a", Title = "Sing Singing I", Artist = "Shirley Novak", VendorName = wildApple.Name, Genre = "Floral", Category = "Botanical", SubjectMatter = "Bird perched among flowers", Style = "Decorative", Medium = "Mixed Media", IsActive = true },
+            new CatalogArtPrint { VendorId = 2, ItemNumber = "99976-f", Title = "Ironstone Pears", Artist = "Carol Rowan", VendorName = wildApple.Name, Genre = "Still Life", Category = "Food & Drink", SubjectMatter = "Pears in ironstone bowl", Style = "Realist", Medium = "Oil", IsActive = true },
+            new CatalogArtPrint { VendorId = 2, ItemNumber = "99975-f", Title = "Ironstone Truffles", Artist = "Carol Rowan", VendorName = wildApple.Name, Genre = "Still Life", Category = "Food & Drink", SubjectMatter = "Truffles in ironstone dish", Style = "Realist", Medium = "Oil", IsActive = true },
+            new CatalogArtPrint { VendorId = 2, ItemNumber = "99974-k", Title = "Ironstone Still Life", Artist = "Carol Rowan", VendorName = wildApple.Name, Genre = "Still Life", Category = "Food & Drink", SubjectMatter = "Classic ironstone still life arrangement", Style = "Realist", Medium = "Oil", IsActive = true },
+            new CatalogArtPrint { VendorId = 2, ItemNumber = "99981-e", Title = "Plum Dahlias", Artist = "Danhui Nai", VendorName = wildApple.Name, Genre = "Floral", Category = "Botanical", SubjectMatter = "Rich plum colored dahlia flowers", Style = "Contemporary", Medium = "Acrylic", IsActive = true },
+            new CatalogArtPrint { VendorId = 2, ItemNumber = "99980-e", Title = "Plum Roses", Artist = "Danhui Nai", VendorName = wildApple.Name, Genre = "Floral", Category = "Botanical", SubjectMatter = "Deep plum roses arrangement", Style = "Contemporary", Medium = "Acrylic", IsActive = true },
+            new CatalogArtPrint { VendorId = 2, ItemNumber = "99979-a", Title = "Monochromatic Poppies", Artist = "Danhui Nai", VendorName = wildApple.Name, Genre = "Floral", Category = "Botanical", SubjectMatter = "Poppies in monochromatic tones", Style = "Contemporary", Medium = "Acrylic", IsActive = true },
+            new CatalogArtPrint { VendorId = 2, ItemNumber = "99298-f", Title = "Beachy Flora and Fauna II Teal", Artist = "Sarah Adams", VendorName = wildApple.Name, Genre = "Coastal", Category = "Beach", SubjectMatter = "Teal coastal flora and fauna", Style = "Decorative", Medium = "Watercolor", IsActive = true },
+            new CatalogArtPrint { VendorId = 2, ItemNumber = "99297-f", Title = "Beachy Flora and Fauna I Teal", Artist = "Sarah Adams", VendorName = wildApple.Name, Genre = "Coastal", Category = "Beach", SubjectMatter = "Coastal shells and botanical teal tones", Style = "Decorative", Medium = "Watercolor", IsActive = true },
+            new CatalogArtPrint { VendorId = 2, ItemNumber = "99260-f", Title = "Nautilus on Blue", Artist = "Wild Apple Portfolio", VendorName = wildApple.Name, Genre = "Coastal", Category = "Beach", SubjectMatter = "Nautilus shell on blue background", Style = "Decorative", Medium = "Digital", IsActive = true },
+            new CatalogArtPrint { VendorId = 2, ItemNumber = "102094-f", Title = "Yellow Joy", Artist = "Kristy Rice", VendorName = wildApple.Name, Genre = "Abstract", Category = "Abstract", SubjectMatter = "Bright yellow abstract composition", Style = "Abstract", Medium = "Acrylic", IsActive = true },
+            new CatalogArtPrint { VendorId = 2, ItemNumber = "102093-f", Title = "Sunset Field", Artist = "Kristy Rice", VendorName = wildApple.Name, Genre = "Landscape", Category = "Nature", SubjectMatter = "Field at sunset with warm tones", Style = "Impressionist", Medium = "Acrylic", IsActive = true },
+            new CatalogArtPrint { VendorId = 2, ItemNumber = "101671-h", Title = "Over the Pasture", Artist = "Nathan Larson", VendorName = wildApple.Name, Genre = "Landscape", Category = "Nature", SubjectMatter = "Pastoral countryside landscape", Style = "Realist", Medium = "Oil", IsActive = true }
+        });
+
+        // --- World Art Group (Id=3) ---
+        var wag = vendorLookup[3];
+        prints.AddRange(new[]
+        {
+            new CatalogArtPrint { VendorId = 3, ItemNumber = "168026", Title = "WAG: The Dog I", Artist = "World Art Group", VendorName = wag.Name, Genre = "Animals", Category = "Pets", SubjectMatter = "Portrait of a dog", Style = "Contemporary", Medium = "Mixed Media", IsActive = true },
+            new CatalogArtPrint { VendorId = 3, ItemNumber = "168027", Title = "WAG: The Dog II", Artist = "World Art Group", VendorName = wag.Name, Genre = "Animals", Category = "Pets", SubjectMatter = "Portrait of a dog", Style = "Contemporary", Medium = "Mixed Media", IsActive = true },
+            new CatalogArtPrint { VendorId = 3, ItemNumber = "150100", Title = "Blue Horizon", Artist = "World Art Group", VendorName = wag.Name, Genre = "Landscape", Category = "Nature", SubjectMatter = "Expansive blue horizon seascape", Style = "Contemporary", Medium = "Acrylic", IsActive = true },
+            new CatalogArtPrint { VendorId = 3, ItemNumber = "150101", Title = "Golden Sunset", Artist = "World Art Group", VendorName = wag.Name, Genre = "Landscape", Category = "Nature", SubjectMatter = "Golden sunset over calm water", Style = "Impressionist", Medium = "Acrylic", IsActive = true },
+            new CatalogArtPrint { VendorId = 3, ItemNumber = "150200", Title = "Abstract Blue Flow", Artist = "World Art Group", VendorName = wag.Name, Genre = "Abstract", Category = "Abstract", SubjectMatter = "Blue flowing abstract composition", Style = "Abstract", Medium = "Acrylic", IsActive = true },
+            new CatalogArtPrint { VendorId = 3, ItemNumber = "150201", Title = "Abstract Gold Leaf", Artist = "World Art Group", VendorName = wag.Name, Genre = "Abstract", Category = "Abstract", SubjectMatter = "Gold leaf abstract texture", Style = "Abstract", Medium = "Mixed Media", IsActive = true },
+            new CatalogArtPrint { VendorId = 3, ItemNumber = "150300", Title = "White Blossoms I", Artist = "World Art Group", VendorName = wag.Name, Genre = "Floral", Category = "Botanical", SubjectMatter = "White cherry blossoms on branches", Style = "Contemporary", Medium = "Acrylic", IsActive = true },
+            new CatalogArtPrint { VendorId = 3, ItemNumber = "150301", Title = "White Blossoms II", Artist = "World Art Group", VendorName = wag.Name, Genre = "Floral", Category = "Botanical", SubjectMatter = "White blossoms with soft background", Style = "Contemporary", Medium = "Acrylic", IsActive = true },
+            new CatalogArtPrint { VendorId = 3, ItemNumber = "150400", Title = "Eucalyptus Leaves", Artist = "World Art Group", VendorName = wag.Name, Genre = "Botanical", Category = "Botanical", SubjectMatter = "Green eucalyptus leaf arrangement", Style = "Contemporary", Medium = "Watercolor", IsActive = true },
+            new CatalogArtPrint { VendorId = 3, ItemNumber = "150401", Title = "Olive Branch", Artist = "World Art Group", VendorName = wag.Name, Genre = "Botanical", Category = "Botanical", SubjectMatter = "Olive branch with soft green tones", Style = "Contemporary", Medium = "Watercolor", IsActive = true },
+            new CatalogArtPrint { VendorId = 3, ItemNumber = "150500", Title = "Coastal Dunes", Artist = "World Art Group", VendorName = wag.Name, Genre = "Coastal", Category = "Beach", SubjectMatter = "Sand dunes with sea grass and ocean view", Style = "Realist", Medium = "Acrylic", IsActive = true },
+            new CatalogArtPrint { VendorId = 3, ItemNumber = "150501", Title = "Ocean Waves", Artist = "World Art Group", VendorName = wag.Name, Genre = "Coastal", Category = "Beach", SubjectMatter = "Rolling ocean waves breaking on shore", Style = "Realist", Medium = "Acrylic", IsActive = true },
+            new CatalogArtPrint { VendorId = 3, ItemNumber = "150600", Title = "Rustic Barn", Artist = "World Art Group", VendorName = wag.Name, Genre = "Landscape", Category = "Farmhouse", SubjectMatter = "Rustic red barn in countryside", Style = "Realist", Medium = "Oil", IsActive = true },
+            new CatalogArtPrint { VendorId = 3, ItemNumber = "150601", Title = "Farmhouse Window", Artist = "World Art Group", VendorName = wag.Name, Genre = "Still Life", Category = "Farmhouse", SubjectMatter = "Farmhouse window with flowers", Style = "Contemporary", Medium = "Mixed Media", IsActive = true },
+            new CatalogArtPrint { VendorId = 3, ItemNumber = "150700", Title = "City Skyline at Dusk", Artist = "World Art Group", VendorName = wag.Name, Genre = "Cityscape", Category = "Urban", SubjectMatter = "Modern city skyline at dusk with lights", Style = "Contemporary", Medium = "Acrylic", IsActive = true }
+        });
+
+        // Build image URLs for all prints
         foreach (var print in prints)
         {
+            var vendor = vendorLookup[print.VendorId];
             print.ImageFileName = $"{print.ItemNumber}.jpg";
-            print.ImageUrl = BuildArtPrintImageUrl(sundance, print.ImageFileName);
+            print.ImageUrl = BuildArtPrintImageUrl(vendor, print.ImageFileName);
             print.ThumbnailUrl = print.ImageUrl;
         }
 
