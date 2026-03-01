@@ -117,11 +117,10 @@
 - All deployed and verified on production
 
 ### What Needs to Be Done Next
-1. **Run AI enrichment on art prints** — populate color/mood/style/description fields (currently null) for better discovery filtering
-2. **Color temperature / lighting plan** — handle art photos taken in different lighting vs mat/moulding photos in studio lighting; need color normalization strategy
-3. **S3 image accessibility** — S3 bucket is private (403 on all requests); need to either make art print images public, add CloudFront, or build a server-side image proxy
-4. **Add more prints per vendor** — currently 15 each, use admin CRUD to add more over time
-5. **Browser testing** — manual testing of ComboBox filters and browse UI in production browser
+1. **S3 image accessibility** — S3 bucket is private (403 on all requests); need to either make art print images public, add CloudFront, or build a server-side image proxy. Art print thumbnails won't display in the browser until this is resolved.
+2. **Implement color normalization** — plan documented in `Docs/color-normalization-plan.md`. Layer 1 (AI lighting detection) and Layer 4 (prompt awareness) are quick wins.
+3. **Add more prints per vendor** — currently 15 each, use admin CRUD to add more over time
+4. **Browser testing** — manual testing of ComboBox filters and browse UI in production browser
 
 ## User Preferences
 - Target users: gifted framers who are NOT tech-savvy (hence voice dictation, large tap targets)
