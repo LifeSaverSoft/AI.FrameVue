@@ -1,0 +1,203 @@
+{
+  "rules": [
+    {
+      "id": "rule-001",
+      "category": "mat-selection",
+      "principle": "The mat color should be pulled from the second or third most prominent color in the artwork, or a shade lighter/darker than a secondary tone. Never match the dominant color — it overwhelms the piece.",
+      "examples": [
+        "For a sunset painting with dominant orange, pick a soft cream or muted lavender mat, not orange",
+        "For a seascape with dominant blue, pick a sandy beige or warm gray mat, not blue"
+      ],
+      "addedBy": "System Seed",
+      "confidence": "high"
+    },
+    {
+      "id": "rule-002",
+      "category": "mat-selection",
+      "principle": "Warm artwork (earth tones, reds, yellows, oranges) should use warm-toned mats: cream, ivory, sand, warm white, light tan. Cool artwork (blues, greens, purples) should use cool-toned mats: bright white, light gray, ice blue, cool white.",
+      "examples": [
+        "A warm autumn landscape → ivory or antique white mat",
+        "A cool ocean scene → bright white or pale gray mat"
+      ],
+      "addedBy": "System Seed",
+      "confidence": "high"
+    },
+    {
+      "id": "rule-003",
+      "category": "mat-selection",
+      "principle": "Bright white mats should only be used with high-contrast modern art, black-and-white photography, or contemporary pieces with a clean aesthetic. For traditional, warm, or delicate art, bright white mats are too harsh and kill warmth.",
+      "examples": [
+        "Black and white photo → bright white mat works well",
+        "Watercolor flowers → warm white or cream, never bright white"
+      ],
+      "addedBy": "System Seed",
+      "confidence": "high"
+    },
+    {
+      "id": "rule-004",
+      "category": "mat-selection",
+      "principle": "Black mats should be reserved for: black-and-white photography, very high-contrast modern/pop art, or as an inner accent mat in a double-mat setup. Never use a black mat as the only mat on traditional, pastoral, or delicate artwork.",
+      "examples": [
+        "Ansel Adams style B&W photo → black mat with thin white inner mat is classic",
+        "Monet-style impressionist → absolutely no black mat"
+      ],
+      "addedBy": "System Seed",
+      "confidence": "high"
+    },
+    {
+      "id": "rule-005",
+      "category": "double-mat-rules",
+      "principle": "Double mats add depth and sophistication. The outer mat should be the dominant neutral (cream, white, gray), and the inner mat (the thin reveal) should pick up a subtle accent color from the artwork. The inner mat reveal should be narrow (1/4 inch).",
+      "examples": [
+        "Floral painting → outer cream mat, inner dusty rose reveal picking up a flower petal color",
+        "Mountain landscape → outer warm white mat, inner sage green reveal picking up foliage"
+      ],
+      "addedBy": "System Seed",
+      "confidence": "high"
+    },
+    {
+      "id": "rule-006",
+      "category": "double-mat-rules",
+      "principle": "Use double mats for: formal presentations, valuable artwork, portraits, pieces that benefit from added depth. Skip double mats for: minimalist/modern art, photography that wants a clean look, art where simplicity is the point.",
+      "examples": [
+        "Formal oil portrait → double mat elevates the presentation",
+        "Minimalist line drawing → single mat keeps it clean"
+      ],
+      "addedBy": "System Seed",
+      "confidence": "high"
+    },
+    {
+      "id": "rule-007",
+      "category": "moulding-selection",
+      "principle": "The moulding era must match the art era. Ornate gilded frames for classical/renaissance art. Clean contemporary profiles for modern/abstract art. Rustic wood for folk/country art. Sleek metal for photography and minimalist pieces.",
+      "examples": [
+        "Classical oil portrait → ornate gold or dark wood with carved detail",
+        "Abstract expressionism → simple black or natural wood float frame",
+        "Rustic landscape → distressed barn wood or weathered finish"
+      ],
+      "addedBy": "System Seed",
+      "confidence": "high"
+    },
+    {
+      "id": "rule-008",
+      "category": "moulding-selection",
+      "principle": "Wood-toned mouldings complement warm-palette artwork. Metal and cool-toned mouldings complement cool-palette artwork. Silver/pewter frames work with blues, greens, purples. Gold/bronze frames work with reds, oranges, earth tones.",
+      "examples": [
+        "Blue abstract → brushed silver or charcoal frame",
+        "Warm still life → walnut or cherry wood frame"
+      ],
+      "addedBy": "System Seed",
+      "confidence": "high"
+    },
+    {
+      "id": "rule-009",
+      "category": "moulding-width",
+      "principle": "Frame moulding width should be proportional to the artwork size. Small artwork (under 11x14): narrow moulding 3/4 to 1.5 inches. Medium artwork (11x14 to 24x36): medium moulding 1.5 to 2.5 inches. Large artwork (over 24x36): wide moulding 2 to 4 inches. Oversized pieces may need even wider.",
+      "examples": [
+        "8x10 watercolor → 1 inch natural wood frame",
+        "30x40 oil painting → 3 inch ornate frame"
+      ],
+      "addedBy": "System Seed",
+      "confidence": "high"
+    },
+    {
+      "id": "rule-010",
+      "category": "moulding-width",
+      "principle": "Visual weight matters more than physical size. A dark, heavy subject (dramatic landscape, bold portrait) can handle and even needs a wider, more substantial frame. A light, airy subject (watercolor, pastel sketch) needs a thinner, lighter frame even if the physical dimensions are large.",
+      "examples": [
+        "Large but delicate watercolor → medium-width light wood, not heavy ornate",
+        "Small but intense oil study → can handle a slightly wider frame for its size"
+      ],
+      "addedBy": "System Seed",
+      "confidence": "high"
+    },
+    {
+      "id": "rule-011",
+      "category": "do-not-do",
+      "principle": "Never use a mat with gallery-wrapped canvas or stretched canvas. Canvas is meant to be displayed without a mat. Use a float frame or simple frame that shows the canvas edges.",
+      "examples": [
+        "Gallery wrap canvas → float frame or thin L-shaped frame, no mat",
+        "Canvas on stretcher bars → shadow box frame or float frame"
+      ],
+      "addedBy": "System Seed",
+      "confidence": "high"
+    },
+    {
+      "id": "rule-012",
+      "category": "do-not-do",
+      "principle": "Never use an ornate gold frame on modern/contemporary abstract art. Never use a sleek minimalist frame on a classical oil painting. The clash between frame style and art era makes both look wrong.",
+      "examples": [
+        "Rothko-style color field → ornate gold frame would be jarring",
+        "Renaissance portrait → thin black metal frame would diminish it"
+      ],
+      "addedBy": "System Seed",
+      "confidence": "high"
+    },
+    {
+      "id": "rule-013",
+      "category": "do-not-do",
+      "principle": "Do not default to gold and black. These are the two most overused frame choices. Gold works for classical art but not for everything. Black works for photography and modern art but is lazy for traditional pieces. Always consider wood tones, silver, white, charcoal, espresso, navy, and natural finishes first.",
+      "examples": [
+        "Instead of default gold on a landscape → try warm walnut or honey oak",
+        "Instead of default black on a portrait → try espresso, charcoal, or dark cherry"
+      ],
+      "addedBy": "System Seed",
+      "confidence": "high"
+    },
+    {
+      "id": "rule-014",
+      "category": "color-pairing",
+      "principle": "The frame and mat should work as a unified presentation system, not compete with each other or the art. The eye should go: artwork first, then mat, then frame. If the frame or mat grabs attention before the art, the design is wrong.",
+      "examples": [
+        "If you notice the frame before the art, it is too bold",
+        "If the mat color pulls your eye away from the art, choose a more neutral shade"
+      ],
+      "addedBy": "System Seed",
+      "confidence": "high"
+    },
+    {
+      "id": "rule-015",
+      "category": "conservation",
+      "principle": "For valuable, original, or sentimental artwork: always recommend acid-free mats, UV-protective glass or acrylic, and archival mounting. Mention this as part of the Best tier recommendation. For prints and reproductions, standard materials are acceptable.",
+      "examples": [
+        "Original oil painting → acid-free mat, UV glass, archival tape",
+        "Poster reproduction → standard mat and glass are fine"
+      ],
+      "addedBy": "System Seed",
+      "confidence": "high"
+    },
+    {
+      "id": "rule-016",
+      "category": "style-matching",
+      "principle": "Photography requires different framing than paintings. Photos look best with clean, simple frames (thin black, white, or natural wood) and generous mat space. Avoid ornate frames on photographs unless the photo itself has a vintage/antique quality.",
+      "examples": [
+        "Modern landscape photo → thin black or white frame, wide white mat",
+        "Vintage sepia portrait photo → thin ornate dark frame can work"
+      ],
+      "addedBy": "System Seed",
+      "confidence": "high"
+    },
+    {
+      "id": "rule-017",
+      "category": "mat-selection",
+      "principle": "Mat reveal width should be proportional to the artwork. Standard is 2.5 to 3 inches for medium art. Small art (under 8x10) can use 2 inch mats. Large art (over 24x36) should use 3.5 to 4 inch mats. Generous mats give art room to breathe.",
+      "examples": [
+        "5x7 art print → 2 inch mat reveal",
+        "24x36 painting → 3.5 inch mat reveal"
+      ],
+      "addedBy": "System Seed",
+      "confidence": "medium"
+    },
+    {
+      "id": "rule-018",
+      "category": "style-matching",
+      "principle": "Watercolors and pastels are delicate media. They need light, understated framing — thin natural wood or simple white frames. Heavy ornate frames overwhelm them. Mats should be warm-toned to complement the soft quality of the medium.",
+      "examples": [
+        "Watercolor botanical → thin maple frame, warm white mat",
+        "Pastel portrait → light wood or white frame, cream mat"
+      ],
+      "addedBy": "System Seed",
+      "confidence": "high"
+    }
+  ]
+}

@@ -1,0 +1,210 @@
+{
+  "vendors": {
+    "larsonJuhl": {
+      "name": "Larson Juhl",
+      "tier": "Best",
+      "mouldings": [
+        {
+          "collection": "Sovereign",
+          "itemNumber": "PLACEHOLDER",
+          "profile": "Scoop",
+          "width": "2.25 inches",
+          "finish": "Antique Gold",
+          "material": "wood",
+          "bestFor": ["classical oil", "portraits", "ornate subjects", "formal art"]
+        },
+        {
+          "collection": "Sovereign",
+          "itemNumber": "PLACEHOLDER",
+          "profile": "Scoop",
+          "width": "2.25 inches",
+          "finish": "Silver Leaf",
+          "material": "wood",
+          "bestFor": ["cool-toned artwork", "contemporary formal", "photography"]
+        },
+        {
+          "collection": "Metropolitan",
+          "itemNumber": "PLACEHOLDER",
+          "profile": "Cap",
+          "width": "1.5 inches",
+          "finish": "Espresso",
+          "material": "wood",
+          "bestFor": ["modern art", "photography", "contemporary pieces"]
+        },
+        {
+          "collection": "Metropolitan",
+          "itemNumber": "PLACEHOLDER",
+          "profile": "Cap",
+          "width": "1.5 inches",
+          "finish": "Natural Walnut",
+          "material": "wood",
+          "bestFor": ["warm artwork", "landscapes", "organic subjects"]
+        }
+      ],
+      "notes": "Premium vendor. Best for high-end framing, museum-quality presentation, and conservation framing. Replace PLACEHOLDER item numbers with real SKUs from your Larson Juhl catalog."
+    },
+    "roma": {
+      "name": "Roma",
+      "tier": "Better",
+      "mouldings": [
+        {
+          "collection": "Tabacchificio",
+          "itemNumber": "PLACEHOLDER",
+          "profile": "Traditional",
+          "width": "2 inches",
+          "finish": "Espresso",
+          "material": "wood",
+          "bestFor": ["traditional art", "warm paintings", "portraits"]
+        },
+        {
+          "collection": "Tabacchificio",
+          "itemNumber": "PLACEHOLDER",
+          "profile": "Traditional",
+          "width": "2 inches",
+          "finish": "Warm Gold",
+          "material": "wood",
+          "bestFor": ["classical art", "impressionist", "formal"]
+        },
+        {
+          "collection": "Lavo",
+          "itemNumber": "PLACEHOLDER",
+          "profile": "Modern",
+          "width": "1.25 inches",
+          "finish": "Black",
+          "material": "wood",
+          "bestFor": ["photography", "modern art", "minimalist"]
+        },
+        {
+          "collection": "Lavo",
+          "itemNumber": "PLACEHOLDER",
+          "profile": "Modern",
+          "width": "1.25 inches",
+          "finish": "White",
+          "material": "wood",
+          "bestFor": ["photography", "minimalist", "light artwork"]
+        }
+      ],
+      "notes": "Mid-premium vendor. Good for refined framing with strong design. Replace PLACEHOLDER item numbers with real SKUs from your Roma catalog."
+    },
+    "internationalMoulding": {
+      "name": "International Moulding",
+      "tier": "Good",
+      "mouldings": [
+        {
+          "collection": "Essentials",
+          "itemNumber": "PLACEHOLDER",
+          "profile": "Simple",
+          "width": "1 inch",
+          "finish": "Black",
+          "material": "wood",
+          "bestFor": ["photography", "prints", "modern art"]
+        },
+        {
+          "collection": "Essentials",
+          "itemNumber": "PLACEHOLDER",
+          "profile": "Simple",
+          "width": "1 inch",
+          "finish": "Natural",
+          "material": "wood",
+          "bestFor": ["watercolor", "light artwork", "casual framing"]
+        },
+        {
+          "collection": "Gallery",
+          "itemNumber": "PLACEHOLDER",
+          "profile": "Float",
+          "width": "1.5 inches",
+          "finish": "Black",
+          "material": "wood",
+          "bestFor": ["canvas", "abstract", "gallery presentation"]
+        },
+        {
+          "collection": "Gallery",
+          "itemNumber": "PLACEHOLDER",
+          "profile": "Float",
+          "width": "1.5 inches",
+          "finish": "Natural Maple",
+          "material": "wood",
+          "bestFor": ["canvas", "warm art", "organic subjects"]
+        }
+      ],
+      "notes": "Value vendor with solid quality. Good for everyday framing. Replace PLACEHOLDER item numbers with real SKUs from your International Moulding catalog."
+    },
+    "crescent": {
+      "name": "Crescent",
+      "tier": "Better/Best",
+      "mats": [
+        {
+          "collection": "Select Conservation",
+          "itemNumber": "PLACEHOLDER",
+          "color": "Warm White",
+          "type": "conservation",
+          "bestFor": ["traditional art", "warm paintings", "general purpose warm"]
+        },
+        {
+          "collection": "Select Conservation",
+          "itemNumber": "PLACEHOLDER",
+          "color": "Bright White",
+          "type": "conservation",
+          "bestFor": ["modern art", "photography", "high-contrast pieces"]
+        },
+        {
+          "collection": "Select Conservation",
+          "itemNumber": "PLACEHOLDER",
+          "color": "Cream",
+          "type": "conservation",
+          "bestFor": ["classical art", "watercolor", "delicate artwork"]
+        },
+        {
+          "collection": "Moorman Select",
+          "itemNumber": "PLACEHOLDER",
+          "color": "Museum White",
+          "type": "museum grade",
+          "bestFor": ["museum framing", "valuable originals", "conservation priority"]
+        },
+        {
+          "collection": "Moorman Select",
+          "itemNumber": "PLACEHOLDER",
+          "color": "Antique White",
+          "type": "museum grade",
+          "bestFor": ["classical art", "formal presentation", "valuable warm artwork"]
+        }
+      ],
+      "notes": "Premium mat vendor. Conservation and museum-grade options. Replace PLACEHOLDER item numbers with real SKUs from your Crescent catalog."
+    },
+    "bainbridge": {
+      "name": "Bainbridge",
+      "tier": "Good",
+      "mats": [
+        {
+          "collection": "Artcare",
+          "itemNumber": "PLACEHOLDER",
+          "color": "White",
+          "type": "standard",
+          "bestFor": ["photography", "prints", "general purpose"]
+        },
+        {
+          "collection": "Artcare",
+          "itemNumber": "PLACEHOLDER",
+          "color": "Off-White",
+          "type": "standard",
+          "bestFor": ["general purpose", "warm artwork", "prints"]
+        },
+        {
+          "collection": "Artcare",
+          "itemNumber": "PLACEHOLDER",
+          "color": "Black",
+          "type": "standard",
+          "bestFor": ["B&W photography", "high contrast modern", "accent inner mat"]
+        },
+        {
+          "collection": "Artcare",
+          "itemNumber": "PLACEHOLDER",
+          "color": "Cream",
+          "type": "standard",
+          "bestFor": ["traditional art", "watercolor", "warm artwork"]
+        }
+      ],
+      "notes": "Good-value mat vendor with acid-free options. Replace PLACEHOLDER item numbers with real SKUs from your Bainbridge catalog."
+    }
+  }
+}

@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using AI.FrameVue.Models;
 using AI.FrameVue.Services;
+using AI.FrameVue.Data;
 
 namespace AI.FrameVue.Controllers;
 
@@ -10,11 +11,16 @@ public class HomeController : Controller
 {
     private readonly ILogger<HomeController> _logger;
     private readonly OpenAIFramingService _framingService;
+    private readonly AppDbContext _db;
 
-    public HomeController(ILogger<HomeController> logger, OpenAIFramingService framingService)
+    public HomeController(
+        ILogger<HomeController> logger,
+        OpenAIFramingService framingService,
+        AppDbContext db)
     {
         _logger = logger;
         _framingService = framingService;
+        _db = db;
     }
 
     public IActionResult Index()
@@ -29,12 +35,12 @@ public class HomeController : Controller
     }
 
     /// <summary>
-    /// Step 1: Analyze the artwork using GPT-4o mini (cheap, fast).
-    /// Returns structured JSON with art style, colors, mood, and 3 frame recommendations.
+    /// Step 1: Two-pass analysis — detect art characteristics, then generate
+    /// expert recommendations using the knowledge base.
     /// </summary>
     [HttpPost]
     [RequestSizeLimit(20 * 1024 * 1024)]
-    public async Task<IActionResult> Analyze(IFormFile image)
+    public async Task<IActionResult> Analyze(IFormFile image, string? userContextJson)
     {
         if (image == null || image.Length == 0)
             return BadRequest(new { error = "No image was uploaded." });
@@ -42,13 +48,65 @@ public class HomeController : Controller
         if (!image.ContentType.StartsWith("image/"))
             return BadRequest(new { error = "The uploaded file is not a valid image." });
 
+        // Parse optional user context
+        UserFramingContext? userContext = null;
+        if (!string.IsNullOrEmpty(userContextJson))
+        {
+            try
+            {
+                userContext = JsonSerializer.Deserialize<UserFramingContext>(userContextJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+            catch
+            {
+                _logger.LogWarning("Could not parse user context JSON");
+            }
+        }
+
         using var ms = new MemoryStream();
         await image.CopyToAsync(ms);
         var imageData = ms.ToArray();
 
         try
         {
-            var analysis = await _framingService.AnalyzeImageAsync(imageData, image.ContentType);
+            var analysis = await _framingService.AnalyzeImageAsync(imageData, image.ContentType, userContext);
+
+            // Save design session
+            try
+            {
+                var session = new DesignSession
+                {
+                    ArtStyle = analysis.ArtStyle,
+                    Medium = analysis.Medium,
+                    SubjectMatter = analysis.SubjectMatter,
+                    Mood = analysis.Mood,
+                    DominantColorsJson = JsonSerializer.Serialize(analysis.DominantColors),
+                    ColorTemperature = analysis.ColorTemperature,
+                    UserContext = userContextJson
+                };
+
+                foreach (var rec in analysis.Recommendations)
+                {
+                    session.Options.Add(new DesignOption
+                    {
+                        Tier = rec.Tier,
+                        StyleName = rec.TierName,
+                        MouldingVendor = rec.MouldingColor,
+                        MouldingDescription = $"{rec.MouldingStyle} in {rec.MouldingColor}, {rec.MouldingWidth}",
+                        MatDescription = $"{rec.MatStyle} in {rec.MatColor}",
+                        Reasoning = rec.Reasoning
+                    });
+                }
+
+                _db.DesignSessions.Add(session);
+                await _db.SaveChangesAsync();
+                _logger.LogInformation("Saved design session {Id}", session.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to save design session (non-critical)");
+            }
+
             return Json(analysis);
         }
         catch (Exception ex)
@@ -71,19 +129,18 @@ public class HomeController : Controller
         if (!image.ContentType.StartsWith("image/"))
             return BadRequest(new { error = "The uploaded file is not a valid image." });
 
-        // Parse the analysis from the client
-        ImageAnalysis analysis;
+        EnhancedImageAnalysis analysis;
         try
         {
-            analysis = JsonSerializer.Deserialize<ImageAnalysis>(analysisJson, new JsonSerializerOptions
+            analysis = JsonSerializer.Deserialize<EnhancedImageAnalysis>(analysisJson, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
-            }) ?? new ImageAnalysis();
+            }) ?? new EnhancedImageAnalysis();
         }
         catch
         {
             _logger.LogWarning("Could not parse analysis JSON from client, using empty analysis");
-            analysis = new ImageAnalysis();
+            analysis = new EnhancedImageAnalysis();
         }
 
         using var ms = new MemoryStream();
@@ -131,6 +188,32 @@ public class HomeController : Controller
         }
     }
 
+    /// <summary>
+    /// Refine a composited wall + art image to look realistic.
+    /// </summary>
+    [HttpPost]
+    [RequestSizeLimit(20 * 1024 * 1024)]
+    public async Task<IActionResult> WallRefine(IFormFile compositeImage)
+    {
+        if (compositeImage == null || compositeImage.Length == 0)
+            return BadRequest(new { error = "No composite image was uploaded." });
+
+        using var ms = new MemoryStream();
+        await compositeImage.CopyToAsync(ms);
+        var data = ms.ToArray();
+
+        try
+        {
+            var previewBase64 = await _framingService.WallRefineAsync(data, compositeImage.ContentType);
+            return Json(new { previewImageBase64 = previewBase64 });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to refine wall preview");
+            return StatusCode(500, new { error = "Failed to refine wall preview." });
+        }
+    }
+
     [HttpPost]
     public async Task<IActionResult> SourceProducts([FromBody] List<FrameProduct> products)
     {
@@ -146,6 +229,29 @@ public class HomeController : Controller
         {
             _logger.LogWarning(ex, "Vendor sourcing failed");
             return Json(products);
+        }
+    }
+
+    /// <summary>
+    /// Submit feedback for a framing option (thumbs up/down).
+    /// </summary>
+    [HttpPost]
+    public async Task<IActionResult> Feedback([FromBody] DesignFeedback feedback)
+    {
+        if (feedback == null)
+            return BadRequest(new { error = "No feedback provided." });
+
+        try
+        {
+            feedback.CreatedAt = DateTime.UtcNow;
+            _db.Feedback.Add(feedback);
+            await _db.SaveChangesAsync();
+            return Json(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to save feedback");
+            return StatusCode(500, new { error = "Failed to save feedback." });
         }
     }
 

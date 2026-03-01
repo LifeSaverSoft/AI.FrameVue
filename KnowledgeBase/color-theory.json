@@ -1,0 +1,54 @@
+{
+  "colorPairingRules": [
+    {
+      "id": "ct-001",
+      "principle": "Complementary color principle: mats in subtle complementary tones create visual harmony. Blue artwork pairs with warm cream/sand mats. Red/orange artwork pairs with cool gray or sage mats. Green artwork pairs with warm neutral or blush mats.",
+      "colorMap": {
+        "warmReds": { "matSuggestions": ["cool gray", "sage green", "cream"], "mouldingSuggestions": ["dark wood", "espresso", "charcoal"] },
+        "warmOranges": { "matSuggestions": ["light gray", "soft blue-gray", "cream"], "mouldingSuggestions": ["walnut", "dark bronze", "charcoal"] },
+        "warmYellows": { "matSuggestions": ["warm white", "light lavender", "soft gray"], "mouldingSuggestions": ["natural wood", "antique gold", "warm brown"] },
+        "coolBlues": { "matSuggestions": ["warm cream", "sand", "soft peach"], "mouldingSuggestions": ["silver", "pewter", "light gray wood"] },
+        "coolGreens": { "matSuggestions": ["warm white", "blush", "cream"], "mouldingSuggestions": ["natural maple", "warm brown", "bronze"] },
+        "coolPurples": { "matSuggestions": ["cream", "warm white", "light gold"], "mouldingSuggestions": ["dark wood", "silver", "pewter"] },
+        "neutrals": { "matSuggestions": ["white", "off-white", "light gray"], "mouldingSuggestions": ["black", "dark brown", "natural wood"] },
+        "earthTones": { "matSuggestions": ["cream", "ivory", "warm white"], "mouldingSuggestions": ["walnut", "cherry", "antiqued gold"] }
+      }
+    },
+    {
+      "id": "ct-002",
+      "principle": "Value contrast rule: The mat should provide contrast with the artwork edges. If the artwork has dark edges, use a lighter mat. If the artwork has light edges, a slightly darker or medium-toned mat creates definition. The goal is clear visual separation between art and mat."
+    },
+    {
+      "id": "ct-003",
+      "principle": "The 60-30-10 rule for framing: 60% should be the artwork (the star), 30% should be the mat (supporting role), 10% should be the frame (the container). If any element overpowers this ratio, the presentation is off-balance."
+    },
+    {
+      "id": "ct-004",
+      "principle": "Monochromatic artworks (mostly one color family) benefit from mats and frames that introduce subtle contrast. An all-blue painting needs warmth in the framing — cream mat, warm wood frame. An all-warm painting needs a touch of coolness — white mat, silver or gray frame."
+    },
+    {
+      "id": "ct-005",
+      "principle": "High-saturation artwork needs neutral framing to give the eye relief. Low-saturation artwork can tolerate slightly more color in the framing. The more colorful the art, the more neutral the presentation should be."
+    }
+  ],
+  "temperatureGuidelines": {
+    "warmArtwork": {
+      "description": "Artwork dominated by reds, oranges, yellows, warm browns, gold tones",
+      "matRecommendation": "Warm-toned mats: cream, ivory, antique white, sand, warm gray",
+      "mouldingRecommendation": "Warm wood tones (walnut, cherry, mahogany), antiqued gold, warm bronze, espresso",
+      "avoid": "Cool white mats, silver frames, blue-toned grays"
+    },
+    "coolArtwork": {
+      "description": "Artwork dominated by blues, greens, purples, cool grays",
+      "matRecommendation": "Cool or neutral mats: white, cool gray, ice blue (subtle), soft silver-gray",
+      "mouldingRecommendation": "Silver, pewter, brushed aluminum, cool gray wood, black, white",
+      "avoid": "Warm gold frames, orange-toned wood, yellow-toned cream mats"
+    },
+    "mixedTemperature": {
+      "description": "Artwork with both warm and cool elements",
+      "matRecommendation": "Neutral mats: off-white, light warm gray — neutral enough to bridge both temperatures",
+      "mouldingRecommendation": "Natural wood in medium tones, charcoal, dark gray — avoids committing to warm or cool",
+      "avoid": "Strongly warm or strongly cool choices that emphasize one temperature over the other"
+    }
+  }
+}

@@ -1,0 +1,121 @@
+{
+  "styleGuides": [
+    {
+      "artStyle": "oil-painting-classical",
+      "keywords": ["oil", "classical", "renaissance", "baroque", "old master", "traditional oil"],
+      "preferredMouldings": ["ornate antique gold", "carved dark wood", "gilded frame with patina", "warm wood with gold lip"],
+      "avoidMouldings": ["thin modern metal", "bright chrome", "flat black", "minimalist profile", "unfinished wood"],
+      "matGuidance": "Double mat recommended. Outer mat: cream or antique white. Inner mat reveal: pick up a warm secondary tone from the painting (burgundy, deep gold, forest green). Acid-free mats for originals.",
+      "widthGuidance": "Medium to wide moulding (2 to 3.5 inches). Classical art needs presence and weight in the frame.",
+      "notes": "Gold does not mean shiny gold. Antiqued, muted gold leaf or burnished gold is the standard for classical work. A too-shiny gold frame cheapens the look."
+    },
+    {
+      "artStyle": "oil-painting-contemporary",
+      "keywords": ["contemporary oil", "modern oil", "expressive oil"],
+      "preferredMouldings": ["clean-profile wood in dark tones", "float frame", "simple black with subtle texture", "espresso or walnut"],
+      "avoidMouldings": ["ornate carved frames", "bright gold", "fussy detail"],
+      "matGuidance": "Often works without a mat if on canvas. If on paper/board, single mat in a neutral that doesn't compete. White or light gray for clean look.",
+      "widthGuidance": "Medium width (1.5 to 2.5 inches). Let the art speak — frame should support, not dominate.",
+      "notes": "Contemporary oil paintings on canvas often look best in float frames that show the canvas edge. If heavily textured/impasto, consider a deeper frame."
+    },
+    {
+      "artStyle": "watercolor",
+      "keywords": ["watercolor", "watercolour", "aquarelle"],
+      "preferredMouldings": ["thin natural wood (maple, birch, ash)", "light-colored simple frames", "thin white or cream frame", "thin gold for formal watercolors"],
+      "avoidMouldings": ["heavy ornate frames", "dark thick frames", "industrial metal", "anything that overwhelms the delicacy"],
+      "matGuidance": "Single mat in warm white or cream. Never bright white — it is too harsh for the soft tones of watercolor. For botanical/floral watercolors, a very subtle sage or dusty rose tinted mat can work beautifully.",
+      "widthGuidance": "Thin to medium (3/4 to 1.5 inches). Watercolors are delicate — the frame should be light and airy.",
+      "notes": "Watercolors are the most easily overwhelmed by heavy framing. When in doubt, go lighter and simpler."
+    },
+    {
+      "artStyle": "acrylic-modern",
+      "keywords": ["acrylic", "modern acrylic", "contemporary acrylic"],
+      "preferredMouldings": ["clean contemporary profiles", "float frames for canvas", "black or dark gray", "natural wood in simple profile"],
+      "avoidMouldings": ["ornate gold", "heavily carved", "fussy traditional frames"],
+      "matGuidance": "If on canvas, no mat — use float frame. If on paper, single mat in white or light gray. For colorful acrylics, a neutral mat prevents color competition.",
+      "widthGuidance": "Medium (1.5 to 2 inches). Clean proportions.",
+      "notes": "Acrylic paintings can be bold and vibrant. The frame should be a clean container, not a competitor."
+    },
+    {
+      "artStyle": "photography-modern",
+      "keywords": ["photograph", "photo", "photography", "digital photo", "fine art photography"],
+      "preferredMouldings": ["thin black", "thin white", "thin natural wood", "thin brushed silver or pewter"],
+      "avoidMouldings": ["ornate gold", "carved frames", "heavily distressed", "wide rustic wood"],
+      "matGuidance": "Generous white or off-white mat. Photography thrives with wide mat space (3+ inches). Black-and-white photos can use a black mat or white mat — both are classic. Color photos almost always want white or light gray.",
+      "widthGuidance": "Thin (3/4 to 1.25 inches). The frame should be nearly invisible — a clean border that defines the edge.",
+      "notes": "Gallery-standard for photography is thin black frame with wide white mat. This is the safest default for any photograph."
+    },
+    {
+      "artStyle": "photography-vintage",
+      "keywords": ["vintage photo", "antique photo", "sepia", "daguerreotype", "tintype"],
+      "preferredMouldings": ["thin dark wood with subtle ornate detail", "antiqued silver or gold", "dark wood"],
+      "avoidMouldings": ["modern minimalist", "bright chrome", "colorful frames"],
+      "matGuidance": "Cream or antique white mat. The warm tone complements the aged quality. Double mat with a thin dark inner reveal can add elegance.",
+      "widthGuidance": "Thin to medium (1 to 2 inches).",
+      "notes": "Vintage photos have a warmth that modern bright framing can destroy. Keep it warm and understated."
+    },
+    {
+      "artStyle": "abstract-modern",
+      "keywords": ["abstract", "abstract expressionism", "color field", "geometric", "non-representational"],
+      "preferredMouldings": ["simple float frame", "thin black", "thin white for light abstracts", "natural wood for organic abstracts"],
+      "avoidMouldings": ["ornate gold", "carved traditional", "anything fussy or decorative"],
+      "matGuidance": "Often no mat — abstract art on canvas looks best in a float frame. If on paper, a single white or light gray mat with generous margins. The frame should be a clean container.",
+      "widthGuidance": "Thin to medium (3/4 to 2 inches). The frame is just a boundary, not a feature.",
+      "notes": "Abstract art IS the statement. The frame should disappear. If someone notices the frame before the art, you chose wrong."
+    },
+    {
+      "artStyle": "impressionist",
+      "keywords": ["impressionist", "impressionism", "post-impressionist", "pointillism"],
+      "preferredMouldings": ["warm gold (not shiny)", "warm wood with subtle profile", "antiqued gold or bronze", "honey-toned wood"],
+      "avoidMouldings": ["cold metal", "stark black", "ultra-modern minimalist"],
+      "matGuidance": "Cream or warm white mat. Double mat with a warm inner reveal adds depth. The mat should echo the painting's warmth and light.",
+      "widthGuidance": "Medium (1.5 to 2.5 inches). Impressionist work benefits from a frame with some presence but not heaviness.",
+      "notes": "Impressionist paintings are about light and color. The framing should feel warm and inviting, never cold or stark."
+    },
+    {
+      "artStyle": "minimalist",
+      "keywords": ["minimalist", "minimal", "simple", "reductive"],
+      "preferredMouldings": ["very thin white", "very thin black", "thin natural light wood", "frameless float mount"],
+      "avoidMouldings": ["anything ornate", "wide frames", "decorative", "gold"],
+      "matGuidance": "Single mat, white or very light gray. Extra-wide margins can be effective — gives the minimal art maximum breathing room.",
+      "widthGuidance": "As thin as possible (1/2 to 3/4 inch). The frame should barely be there.",
+      "notes": "Minimalist art requires minimalist framing. The frame should be invisible. Consider gallery-style mounting without a visible frame."
+    },
+    {
+      "artStyle": "pop-art",
+      "keywords": ["pop art", "pop", "warhol", "lichtenstein", "comic art"],
+      "preferredMouldings": ["clean simple frames", "bold colored frames can work", "thin black for a gallery look", "white box frame"],
+      "avoidMouldings": ["ornate traditional", "antiqued gold", "rustic wood"],
+      "matGuidance": "White mat for clean contrast, or no mat with a box/float frame. Pop art is bold — the framing should be clean and let the colors pop.",
+      "widthGuidance": "Thin to medium (1 to 2 inches). Clean and graphic.",
+      "notes": "Pop art already has strong visual impact. Framing should support the graphic quality without adding competing ornamentation."
+    },
+    {
+      "artStyle": "charcoal-pencil",
+      "keywords": ["charcoal", "pencil", "graphite", "sketch", "drawing"],
+      "preferredMouldings": ["simple dark wood or black", "thin silver or pewter", "natural wood in darker tones"],
+      "avoidMouldings": ["bright gold", "heavily ornate", "colorful frames"],
+      "matGuidance": "White or off-white mat to provide contrast against the grayscale artwork. Double mat with a thin black inner reveal is a classic presentation for drawings.",
+      "widthGuidance": "Thin to medium (1 to 2 inches). Elegant and understated.",
+      "notes": "Drawings and sketches are intimate works. The framing should feel refined and gallery-appropriate without being heavy."
+    },
+    {
+      "artStyle": "mixed-media",
+      "keywords": ["mixed media", "collage", "assemblage", "multimedia"],
+      "preferredMouldings": ["shadow box if 3D elements", "float frame for flat mixed media", "simple contemporary profile"],
+      "avoidMouldings": ["ultra-traditional unless the piece is traditional in nature"],
+      "matGuidance": "Depends on the piece. If flat, treat like the dominant medium. If textured/3D, use a shadow box with appropriate depth. Mat optional based on the piece.",
+      "widthGuidance": "Medium (1.5 to 2.5 inches). Shadow boxes need depth appropriate to the thickest element.",
+      "notes": "Mixed media is the most varied category. Study the piece and frame for its dominant visual quality."
+    },
+    {
+      "artStyle": "folk-rustic",
+      "keywords": ["folk art", "rustic", "country", "primitive", "Americana", "barn", "farmhouse"],
+      "preferredMouldings": ["distressed or weathered wood", "reclaimed wood", "barnwood style", "rustic dark wood"],
+      "avoidMouldings": ["sleek modern metal", "bright gold", "high-gloss finishes"],
+      "matGuidance": "Warm cream or natural-toned mat. Linen mats add lovely texture for folk art. Keep it earthy and organic.",
+      "widthGuidance": "Medium to wide (1.5 to 3 inches). Rustic frames can be wider without overwhelming.",
+      "notes": "Folk and rustic art wants to feel handmade and organic. The frame should enhance that warmth, not fight it."
+    }
+  ]
+}

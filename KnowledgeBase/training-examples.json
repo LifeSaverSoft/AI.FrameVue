@@ -1,0 +1,160 @@
+{
+  "examples": [
+    {
+      "id": "ex-001",
+      "description": "Watercolor landscape with blues and greens",
+      "artStyle": "watercolor",
+      "medium": "watercolor",
+      "subjectMatter": "landscape",
+      "dominantColors": ["#4A7C9B", "#6B8E4E", "#E8DCC8"],
+      "colorTemperature": "mixed",
+      "mood": "serene",
+      "expertChoice": {
+        "moulding": "Natural maple, thin profile (1 inch)",
+        "mouldingColor": "natural maple",
+        "mouldingWidth": "thin",
+        "mat": "Single mat, warm white",
+        "matColor": "warm white (#F5F0E8)",
+        "matStyle": "single mat",
+        "reasoning": "Watercolors are delicate — the frame should never compete. Natural wood adds warmth without weight. The mat is warm-toned to complement the earthy greens rather than the dominant blue."
+      },
+      "commonMistakes": [
+        "Using a bright white mat — kills the warmth of the watercolor",
+        "Using a heavy ornate frame — overwhelms the lightness of the medium",
+        "Matching mat to the blue — makes it look like a blue painting instead of a landscape",
+        "Using a wide dark frame — too much visual weight for a delicate medium"
+      ],
+      "addedBy": "System Seed"
+    },
+    {
+      "id": "ex-002",
+      "description": "Bold abstract painting with reds and blacks",
+      "artStyle": "abstract-modern",
+      "medium": "acrylic",
+      "subjectMatter": "abstract",
+      "dominantColors": ["#CC2233", "#1A1A1A", "#F0E8D0"],
+      "colorTemperature": "warm",
+      "mood": "dramatic",
+      "expertChoice": {
+        "moulding": "Simple black float frame, medium profile (1.5 inch)",
+        "mouldingColor": "matte black",
+        "mouldingWidth": "medium",
+        "mat": "No mat — float frame shows canvas edge",
+        "matColor": "none",
+        "matStyle": "no mat",
+        "reasoning": "Abstract art this bold should not be confined by a mat. The float frame creates a clean gallery presentation. Black frame provides a boundary without competing with the reds."
+      },
+      "commonMistakes": [
+        "Adding a mat to canvas — canvas should show its edges",
+        "Using an ornate gold frame — clashes with modern abstract energy",
+        "Using a red mat to match the reds — doubles down on intensity instead of containing it",
+        "Using a thin frame — the drama of this piece needs a frame with some presence"
+      ],
+      "addedBy": "System Seed"
+    },
+    {
+      "id": "ex-003",
+      "description": "Classical oil portrait with warm earth tones",
+      "artStyle": "oil-painting-classical",
+      "medium": "oil",
+      "subjectMatter": "portrait",
+      "dominantColors": ["#8B6914", "#2F1B0E", "#D4A76A", "#F2E8D0"],
+      "colorTemperature": "warm",
+      "mood": "formal",
+      "expertChoice": {
+        "moulding": "Antique gold with carved profile, wide (2.5 inch)",
+        "mouldingColor": "antique gold",
+        "mouldingWidth": "wide",
+        "mat": "Double mat — outer cream, inner burgundy reveal",
+        "matColor": "cream outer, burgundy inner reveal",
+        "matStyle": "double mat",
+        "reasoning": "Classical portraits demand presence. The antique gold frame matches the era and warmth. Double mat with burgundy inner reveal adds formal depth and picks up the warm undertones. Wide frame gives the portrait stature."
+      },
+      "commonMistakes": [
+        "Using a thin modern frame — diminishes the gravitas of a classical portrait",
+        "Using bright shiny gold instead of antiqued — looks cheap and gaudy",
+        "Single white mat — too plain for formal portraiture",
+        "Matching mat to the dominant brown — muddy and flat"
+      ],
+      "addedBy": "System Seed"
+    },
+    {
+      "id": "ex-004",
+      "description": "Black and white street photography",
+      "artStyle": "photography-modern",
+      "medium": "photography",
+      "subjectMatter": "street scene",
+      "dominantColors": ["#1A1A1A", "#888888", "#E0E0E0"],
+      "colorTemperature": "neutral",
+      "mood": "documentary",
+      "expertChoice": {
+        "moulding": "Thin black metal frame (3/4 inch)",
+        "mouldingColor": "black",
+        "mouldingWidth": "thin",
+        "mat": "Single mat, white with generous margins (3.5 inches)",
+        "matColor": "white",
+        "matStyle": "single mat",
+        "reasoning": "Gallery-standard photography framing: thin black frame, wide white mat. The generous mat gives the photo room to breathe and creates a gallery-quality presentation. The frame is nearly invisible — the viewer sees the photograph, not the frame."
+      },
+      "commonMistakes": [
+        "Using a decorative or ornate frame — fights the documentary quality",
+        "Narrow mat — photos need room to breathe",
+        "Colored mat — distracts from the tonal qualities of B&W",
+        "Wide frame — overwhelms the photograph"
+      ],
+      "addedBy": "System Seed"
+    },
+    {
+      "id": "ex-005",
+      "description": "Vibrant impressionist garden scene",
+      "artStyle": "impressionist",
+      "medium": "oil",
+      "subjectMatter": "garden",
+      "dominantColors": ["#7B2D8E", "#E8A525", "#4CAF50", "#F5E6B8"],
+      "colorTemperature": "warm",
+      "mood": "joyful",
+      "expertChoice": {
+        "moulding": "Warm antiqued gold with gentle scoop profile, medium-wide (2 inch)",
+        "mouldingColor": "antiqued gold",
+        "mouldingWidth": "medium",
+        "mat": "Double mat — outer cream, inner sage green reveal",
+        "matColor": "cream outer, sage green inner",
+        "matStyle": "double mat",
+        "reasoning": "Impressionist garden scenes glow with warm antiqued gold frames. The double mat adds sophistication — the sage green inner reveal picks up the garden foliage without matching the dominant purple. The warm cream outer mat complements the golden light in the painting."
+      },
+      "commonMistakes": [
+        "Matching mat to the purple — overpowers the garden atmosphere",
+        "Using a cold silver frame — kills the warmth of impressionist light",
+        "Using a stark white mat — too clinical for the warmth of the scene",
+        "Modern minimalist frame — wrong era, wrong energy"
+      ],
+      "addedBy": "System Seed"
+    },
+    {
+      "id": "ex-006",
+      "description": "Minimalist geometric print",
+      "artStyle": "minimalist",
+      "medium": "digital print",
+      "subjectMatter": "geometric",
+      "dominantColors": ["#FFFFFF", "#000000", "#E8E0D0"],
+      "colorTemperature": "neutral",
+      "mood": "calm",
+      "expertChoice": {
+        "moulding": "Very thin white frame (1/2 inch)",
+        "mouldingColor": "white",
+        "mouldingWidth": "thin",
+        "mat": "Single white mat, extra-wide margins (4 inches)",
+        "matColor": "white",
+        "matStyle": "single mat",
+        "reasoning": "Minimalist art needs minimalist framing. The thin white frame nearly disappears. Extra-wide mat margins give the geometric forms maximum space to exist. Everything is clean, precise, and breathing."
+      },
+      "commonMistakes": [
+        "Any ornate or decorative frame — completely wrong aesthetic",
+        "Narrow mat — minimalist art needs space around it",
+        "Dark frame — adds visual weight where none is wanted",
+        "Double mat — too much complexity for minimal art"
+      ],
+      "addedBy": "System Seed"
+    }
+  ]
+}

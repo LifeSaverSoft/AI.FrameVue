@@ -778,7 +778,13 @@
                 '<img src="' + src + '" alt="' + esc(styleName || 'Framed image') + '" />' +
             '</div>' +
             '<div class="lightbox-footer">' +
-                '<button class="lightbox-action-btn" type="button">' +
+                (typeof THREE !== 'undefined'
+                    ? '<button class="lightbox-action-btn lightbox-3d-btn" type="button">' +
+                        '<svg viewBox="0 0 20 20" fill="none" width="16" height="16"><path d="M10 2l8 4v8l-8 4-8-4V6l8-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 10v8M10 10l8-4M10 10L2 6" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>' +
+                        '3D View' +
+                      '</button>'
+                    : '') +
+                '<button class="lightbox-action-btn lightbox-wall-btn" type="button">' +
                     '<svg viewBox="0 0 20 20" fill="none" width="16" height="16"><rect x="2" y="4" width="16" height="12" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="6" y="7" width="8" height="6" stroke="currentColor" stroke-width="1" opacity="0.5"/><path d="M5 2v2M15 2v2M10 2v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>' +
                     'Preview on Wall' +
                 '</button>' +
@@ -801,27 +807,572 @@
         overlay.querySelector('.lightbox-close').addEventListener('click', close);
 
         // Wall preview from lightbox
-        overlay.querySelector('.lightbox-action-btn').addEventListener('click', function () {
+        overlay.querySelector('.lightbox-wall-btn').addEventListener('click', function () {
             close();
             openWallViewer(src, styleName);
         });
+
+        // 3D view from lightbox
+        var threeDBtn = overlay.querySelector('.lightbox-3d-btn');
+        if (threeDBtn) {
+            threeDBtn.addEventListener('click', function () {
+                close();
+                open3DViewer(src, styleName);
+            });
+        }
 
         document.addEventListener('keydown', onKey);
         document.body.appendChild(overlay);
     }
 
-    // === Wall Viewer Modal ===
+    // === 3D Frame Viewer (Three.js) ===
+
+    function open3DViewer(imageSrc, styleName) {
+        if (typeof THREE === 'undefined') return;
+
+        var overlay = document.createElement('div');
+        overlay.className = 'viewer3d';
+        overlay.innerHTML =
+            '<button class="viewer3d-close" type="button">&times;</button>' +
+            '<div class="viewer3d-label">' + esc(styleName || '') + '</div>' +
+            '<div class="viewer3d-canvas-wrap"></div>' +
+            '<div class="viewer3d-hint">Click &amp; drag to orbit &middot; Scroll to zoom</div>' +
+            '<div class="viewer3d-controls">' +
+                '<div class="viewer3d-frametype">' +
+                    '<span class="viewer3d-control-label">Frame</span>' +
+                    '<button class="frametype-opt active" data-type="standard">Standard</button>' +
+                    '<button class="frametype-opt" data-type="shadowbox">Shadow Box</button>' +
+                '</div>' +
+                '<div class="viewer3d-glazing">' +
+                    '<span class="viewer3d-control-label">Glazing</span>' +
+                    '<button class="glazing-opt active" data-glass="museum">Museum Glass</button>' +
+                    '<button class="glazing-opt" data-glass="conservation">Conservation Clear</button>' +
+                    '<button class="glazing-opt" data-glass="clear">Regular Clear</button>' +
+                '</div>' +
+            '</div>';
+
+        document.body.appendChild(overlay);
+
+        var canvasWrap = overlay.querySelector('.viewer3d-canvas-wrap');
+        var w = canvasWrap.clientWidth;
+        var h = canvasWrap.clientHeight;
+
+        // Renderer
+        var renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(w, h);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        canvasWrap.appendChild(renderer.domElement);
+
+        // Scene
+        var scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x08080f);
+
+        // Camera
+        var camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
+        camera.position.set(0, 0, 3.5);
+
+        // Controls
+        var controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.minDistance = 1.5;
+        controls.maxDistance = 7;
+        controls.maxPolarAngle = Math.PI * 0.85;
+        controls.minPolarAngle = Math.PI * 0.15;
+
+        // Lighting
+        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+        var keyLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        keyLight.position.set(2, 3, 4);
+        scene.add(keyLight);
+        var fillLight = new THREE.DirectionalLight(0xfff5e0, 0.3);
+        fillLight.position.set(-2, 1, 2);
+        scene.add(fillLight);
+
+        // Environment map for glazing reflections
+        var pmremGen = new THREE.PMREMGenerator(renderer);
+        var envScene = new THREE.Scene();
+        envScene.background = new THREE.Color(0x333333);
+        var el1 = new THREE.DirectionalLight(0xffffff, 1);
+        el1.position.set(1, 1, 1);
+        envScene.add(el1);
+        var el2 = new THREE.DirectionalLight(0xfff5e0, 0.5);
+        el2.position.set(-1, 0.5, -0.5);
+        envScene.add(el2);
+        var envMap = pmremGen.fromScene(envScene, 0.04).texture;
+        scene.environment = envMap;
+        envScene = null;
+
+        // Glazing presets
+        var glazingPresets = {
+            museum:       { transmission: 0.98, roughness: 0.02, reflectivity: 0.02, ior: 1.5 },
+            conservation: { transmission: 0.92, roughness: 0.08, reflectivity: 0.15, ior: 1.5 },
+            clear:        { transmission: 0.88, roughness: 0.12, reflectivity: 0.35, ior: 1.5 }
+        };
+
+        var frameGroup = new THREE.Group();
+        scene.add(frameGroup);
+        var glassMaterial = null;
+        var currentFrameType = 'standard';
+        var currentGlazing = 'museum';
+        var animId = null;
+
+        // Load texture and build frame
+        var texLoader = new THREE.TextureLoader();
+        texLoader.load(imageSrc, function (texture) {
+            texture.colorSpace = THREE.SRGBColorSpace;
+            buildFrame(texture);
+        });
+
+        function buildFrame(texture) {
+            // Clear previous geometry
+            while (frameGroup.children.length > 0) {
+                var child = frameGroup.children[0];
+                frameGroup.remove(child);
+                if (child.geometry) child.geometry.dispose();
+                if (child.material && child.material !== glassMaterial) {
+                    child.material.dispose();
+                }
+            }
+            if (glassMaterial) { glassMaterial.dispose(); glassMaterial = null; }
+
+            var aspect = texture.image.width / texture.image.height;
+            var imgW, imgH;
+            if (aspect >= 1) { imgW = 1.2; imgH = 1.2 / aspect; }
+            else { imgW = 1.2 * aspect; imgH = 1.2; }
+
+            var matBorder = 0.08;
+            var frameBorder = 0.06;
+            var matW = imgW + matBorder * 2;
+            var matH = imgH + matBorder * 2;
+            var frameW = matW + frameBorder * 2;
+            var frameH = matH + frameBorder * 2;
+
+            var isSB = currentFrameType === 'shadowbox';
+            var frameDepth = isSB ? 0.28 : 0.06;
+            var imageZ = isSB ? -0.18 : 0;
+            var glassZ = frameDepth / 2 + 0.001;
+
+            // --- Image plane ---
+            var imgMesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(imgW, imgH),
+                new THREE.MeshStandardMaterial({ map: texture })
+            );
+            imgMesh.position.z = imageZ;
+            frameGroup.add(imgMesh);
+
+            // --- Mat (extruded ring) ---
+            var matShape = new THREE.Shape();
+            matShape.moveTo(-matW / 2, -matH / 2);
+            matShape.lineTo(matW / 2, -matH / 2);
+            matShape.lineTo(matW / 2, matH / 2);
+            matShape.lineTo(-matW / 2, matH / 2);
+            matShape.closePath();
+            var matHole = new THREE.Path();
+            matHole.moveTo(-imgW / 2, -imgH / 2);
+            matHole.lineTo(-imgW / 2, imgH / 2);
+            matHole.lineTo(imgW / 2, imgH / 2);
+            matHole.lineTo(imgW / 2, -imgH / 2);
+            matHole.closePath();
+            matShape.holes.push(matHole);
+            var matMesh = new THREE.Mesh(
+                new THREE.ExtrudeGeometry(matShape, { depth: 0.015, bevelEnabled: false }),
+                new THREE.MeshStandardMaterial({ color: 0xf5f0e8, roughness: 0.85 })
+            );
+            matMesh.position.z = imageZ - 0.008;
+            frameGroup.add(matMesh);
+
+            // --- Frame (extruded ring) ---
+            var fShape = new THREE.Shape();
+            fShape.moveTo(-frameW / 2, -frameH / 2);
+            fShape.lineTo(frameW / 2, -frameH / 2);
+            fShape.lineTo(frameW / 2, frameH / 2);
+            fShape.lineTo(-frameW / 2, frameH / 2);
+            fShape.closePath();
+            var fHole = new THREE.Path();
+            fHole.moveTo(-matW / 2, -matH / 2);
+            fHole.lineTo(-matW / 2, matH / 2);
+            fHole.lineTo(matW / 2, matH / 2);
+            fHole.lineTo(matW / 2, -matH / 2);
+            fHole.closePath();
+            fShape.holes.push(fHole);
+            var frameMesh = new THREE.Mesh(
+                new THREE.ExtrudeGeometry(fShape, { depth: frameDepth, bevelEnabled: false }),
+                new THREE.MeshStandardMaterial({ color: 0x3d2b1f, roughness: 0.6, metalness: 0.2 })
+            );
+            frameMesh.position.z = -frameDepth / 2;
+            frameGroup.add(frameMesh);
+
+            // --- Shadow box interior walls ---
+            if (isSB) {
+                var wallMat = new THREE.MeshStandardMaterial({ color: 0xf0ead6, roughness: 0.9 });
+                var innerDepth = glassZ - imageZ;
+
+                var topG = new THREE.PlaneGeometry(matW, innerDepth);
+                var topW = new THREE.Mesh(topG, wallMat);
+                topW.position.set(0, matH / 2, imageZ + innerDepth / 2);
+                topW.rotation.x = Math.PI / 2;
+                frameGroup.add(topW);
+
+                var botW = new THREE.Mesh(topG.clone(), wallMat);
+                botW.position.set(0, -matH / 2, imageZ + innerDepth / 2);
+                botW.rotation.x = -Math.PI / 2;
+                frameGroup.add(botW);
+
+                var sideG = new THREE.PlaneGeometry(innerDepth, matH);
+                var leftW = new THREE.Mesh(sideG, wallMat);
+                leftW.position.set(-matW / 2, 0, imageZ + innerDepth / 2);
+                leftW.rotation.y = Math.PI / 2;
+                frameGroup.add(leftW);
+
+                var rightW = new THREE.Mesh(sideG.clone(), wallMat);
+                rightW.position.set(matW / 2, 0, imageZ + innerDepth / 2);
+                rightW.rotation.y = -Math.PI / 2;
+                frameGroup.add(rightW);
+            }
+
+            // --- Glass plane (glazing) ---
+            var preset = glazingPresets[currentGlazing];
+            glassMaterial = new THREE.MeshPhysicalMaterial({
+                transmission: preset.transmission,
+                roughness: preset.roughness,
+                reflectivity: preset.reflectivity,
+                ior: preset.ior,
+                thickness: 0.002,
+                transparent: true,
+                side: THREE.FrontSide
+            });
+            var glassMesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(imgW + matBorder * 2 - 0.01, imgH + matBorder * 2 - 0.01),
+                glassMaterial
+            );
+            glassMesh.position.z = glassZ;
+            frameGroup.add(glassMesh);
+        }
+
+        // --- Glazing controls ---
+        overlay.querySelectorAll('.glazing-opt').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                overlay.querySelectorAll('.glazing-opt').forEach(function (b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+                currentGlazing = btn.dataset.glass;
+                if (glassMaterial) {
+                    var p = glazingPresets[currentGlazing];
+                    glassMaterial.transmission = p.transmission;
+                    glassMaterial.roughness = p.roughness;
+                    glassMaterial.reflectivity = p.reflectivity;
+                    glassMaterial.ior = p.ior;
+                    glassMaterial.needsUpdate = true;
+                }
+            });
+        });
+
+        // --- Frame type controls ---
+        overlay.querySelectorAll('.frametype-opt').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                overlay.querySelectorAll('.frametype-opt').forEach(function (b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+                currentFrameType = btn.dataset.type;
+                var tex = null;
+                frameGroup.traverse(function (ch) {
+                    if (ch.material && ch.material.map) tex = ch.material.map;
+                });
+                if (tex) buildFrame(tex);
+            });
+        });
+
+        // --- Animation loop ---
+        function animate() {
+            animId = requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // --- Resize ---
+        function onResize() {
+            var cw = canvasWrap.clientWidth;
+            var ch = canvasWrap.clientHeight;
+            camera.aspect = cw / ch;
+            camera.updateProjectionMatrix();
+            renderer.setSize(cw, ch);
+        }
+        window.addEventListener('resize', onResize);
+
+        // --- Close ---
+        function close3D() {
+            cancelAnimationFrame(animId);
+            window.removeEventListener('resize', onResize);
+            document.removeEventListener('keydown', onKey3D);
+            frameGroup.traverse(function (ch) {
+                if (ch.geometry) ch.geometry.dispose();
+                if (ch.material) {
+                    if (ch.material.map) ch.material.map.dispose();
+                    ch.material.dispose();
+                }
+            });
+            if (envMap) envMap.dispose();
+            pmremGen.dispose();
+            renderer.dispose();
+            overlay.remove();
+        }
+        function onKey3D(e) { if (e.key === 'Escape') close3D(); }
+        overlay.querySelector('.viewer3d-close').addEventListener('click', close3D);
+        document.addEventListener('keydown', onKey3D);
+    }
+
+    // === 3D Wall Viewer (Three.js) ===
+
+    function openWall3DViewer(wallDataUrl, framedSrc, artRelPos) {
+        if (typeof THREE === 'undefined') return;
+
+        var overlay = document.createElement('div');
+        overlay.className = 'viewer3d';
+        overlay.innerHTML =
+            '<button class="viewer3d-close" type="button">&times;</button>' +
+            '<div class="viewer3d-label">Room Preview</div>' +
+            '<div class="viewer3d-canvas-wrap"></div>' +
+            '<div class="viewer3d-hint">Orbit to view from different angles &middot; Drag art to reposition</div>' +
+            '<div class="viewer3d-controls">' +
+                '<div class="viewer3d-glazing">' +
+                    '<span class="viewer3d-control-label">Glazing</span>' +
+                    '<button class="glazing-opt active" data-glass="museum">Museum Glass</button>' +
+                    '<button class="glazing-opt" data-glass="conservation">Conservation Clear</button>' +
+                    '<button class="glazing-opt" data-glass="clear">Regular Clear</button>' +
+                '</div>' +
+            '</div>';
+
+        document.body.appendChild(overlay);
+
+        var canvasWrap = overlay.querySelector('.viewer3d-canvas-wrap');
+        var w = canvasWrap.clientWidth;
+        var h = canvasWrap.clientHeight;
+
+        var renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(w, h);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        canvasWrap.appendChild(renderer.domElement);
+
+        var scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x181820);
+
+        var camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 100);
+        camera.position.set(0, 0, 5);
+
+        var controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.minDistance = 2;
+        controls.maxDistance = 10;
+        controls.maxPolarAngle = Math.PI * 0.6;
+        controls.minPolarAngle = Math.PI * 0.25;
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        var kl = new THREE.DirectionalLight(0xffffff, 0.7);
+        kl.position.set(0, 4, 3);
+        scene.add(kl);
+        var fl = new THREE.DirectionalLight(0xfff5e0, 0.2);
+        fl.position.set(-3, 1, 2);
+        scene.add(fl);
+
+        var pmremGen = new THREE.PMREMGenerator(renderer);
+        var envSc = new THREE.Scene();
+        envSc.background = new THREE.Color(0x444444);
+        envSc.add(new THREE.DirectionalLight(0xffffff, 0.8));
+        var envMap = pmremGen.fromScene(envSc, 0.04).texture;
+        scene.environment = envMap;
+
+        var glazingPresets = {
+            museum:       { transmission: 0.98, roughness: 0.02, reflectivity: 0.02, ior: 1.5 },
+            conservation: { transmission: 0.92, roughness: 0.08, reflectivity: 0.15, ior: 1.5 },
+            clear:        { transmission: 0.88, roughness: 0.12, reflectivity: 0.35, ior: 1.5 }
+        };
+        var glassMat = null;
+        var artGroup = new THREE.Group();
+        var wallMesh = null;
+        var animId = null;
+
+        // Load wall texture
+        var texLoader = new THREE.TextureLoader();
+        texLoader.load(wallDataUrl, function (wallTex) {
+            wallTex.colorSpace = THREE.SRGBColorSpace;
+            var wallAspect = wallTex.image.width / wallTex.image.height;
+            var wallW = 8, wallH = 8 / wallAspect;
+
+            wallMesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(wallW, wallH),
+                new THREE.MeshStandardMaterial({ map: wallTex })
+            );
+            scene.add(wallMesh);
+
+            // Load framed art texture
+            texLoader.load(framedSrc, function (artTex) {
+                artTex.colorSpace = THREE.SRGBColorSpace;
+                var artAspect = artTex.image.width / artTex.image.height;
+                var artScale = artRelPos.scale || 0.35;
+                var artW = wallW * artScale;
+                var artH = artW / artAspect;
+
+                var artMesh = new THREE.Mesh(
+                    new THREE.PlaneGeometry(artW, artH),
+                    new THREE.MeshStandardMaterial({ map: artTex })
+                );
+
+                // Frame around art
+                var fb = 0.04;
+                var fOW = artW + fb * 2, fOH = artH + fb * 2;
+                var fs = new THREE.Shape();
+                fs.moveTo(-fOW / 2, -fOH / 2);
+                fs.lineTo(fOW / 2, -fOH / 2);
+                fs.lineTo(fOW / 2, fOH / 2);
+                fs.lineTo(-fOW / 2, fOH / 2);
+                fs.closePath();
+                var fh = new THREE.Path();
+                fh.moveTo(-artW / 2, -artH / 2);
+                fh.lineTo(-artW / 2, artH / 2);
+                fh.lineTo(artW / 2, artH / 2);
+                fh.lineTo(artW / 2, -artH / 2);
+                fh.closePath();
+                fs.holes.push(fh);
+                var frameMesh = new THREE.Mesh(
+                    new THREE.ExtrudeGeometry(fs, { depth: 0.04, bevelEnabled: false }),
+                    new THREE.MeshStandardMaterial({ color: 0x3d2b1f, roughness: 0.6, metalness: 0.2 })
+                );
+                frameMesh.position.z = -0.02;
+
+                // Glass
+                var gPreset = glazingPresets.museum;
+                glassMat = new THREE.MeshPhysicalMaterial({
+                    transmission: gPreset.transmission,
+                    roughness: gPreset.roughness,
+                    reflectivity: gPreset.reflectivity,
+                    ior: gPreset.ior,
+                    thickness: 0.002,
+                    transparent: true
+                });
+                var glassM = new THREE.Mesh(
+                    new THREE.PlaneGeometry(artW, artH),
+                    glassMat
+                );
+                glassM.position.z = 0.022;
+
+                artGroup.add(frameMesh);
+                artGroup.add(artMesh);
+                artGroup.add(glassM);
+
+                // Position art on wall using relative coords
+                var px = (artRelPos.x - 0.5) * wallW;
+                var py = -(artRelPos.y - 0.5) * wallH;
+                artGroup.position.set(px, py, 0.03);
+                scene.add(artGroup);
+            });
+        });
+
+        // Raycasting drag
+        var raycaster = new THREE.Raycaster();
+        var mouse = new THREE.Vector2();
+        var isDragging = false;
+        var dragPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+        var dragOffset = new THREE.Vector3();
+
+        renderer.domElement.addEventListener('pointerdown', function (e) {
+            mouse.x = (e.offsetX / renderer.domElement.clientWidth) * 2 - 1;
+            mouse.y = -(e.offsetY / renderer.domElement.clientHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            var hits = raycaster.intersectObject(artGroup, true);
+            if (hits.length > 0) {
+                isDragging = true;
+                controls.enabled = false;
+                var pt = new THREE.Vector3();
+                raycaster.ray.intersectPlane(dragPlane, pt);
+                dragOffset.copy(artGroup.position).sub(pt);
+                e.preventDefault();
+            }
+        });
+
+        renderer.domElement.addEventListener('pointermove', function (e) {
+            if (!isDragging) return;
+            mouse.x = (e.offsetX / renderer.domElement.clientWidth) * 2 - 1;
+            mouse.y = -(e.offsetY / renderer.domElement.clientHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            var pt = new THREE.Vector3();
+            raycaster.ray.intersectPlane(dragPlane, pt);
+            artGroup.position.copy(pt.add(dragOffset));
+            artGroup.position.z = 0.03;
+        });
+
+        renderer.domElement.addEventListener('pointerup', function () {
+            if (isDragging) { isDragging = false; controls.enabled = true; }
+        });
+
+        // Glazing controls
+        overlay.querySelectorAll('.glazing-opt').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                overlay.querySelectorAll('.glazing-opt').forEach(function (b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+                if (glassMat) {
+                    var p = glazingPresets[btn.dataset.glass];
+                    glassMat.transmission = p.transmission;
+                    glassMat.roughness = p.roughness;
+                    glassMat.reflectivity = p.reflectivity;
+                    glassMat.needsUpdate = true;
+                }
+            });
+        });
+
+        function animate() {
+            animId = requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        function onResize() {
+            var cw = canvasWrap.clientWidth;
+            var ch = canvasWrap.clientHeight;
+            camera.aspect = cw / ch;
+            camera.updateProjectionMatrix();
+            renderer.setSize(cw, ch);
+        }
+        window.addEventListener('resize', onResize);
+
+        function close3D() {
+            cancelAnimationFrame(animId);
+            window.removeEventListener('resize', onResize);
+            document.removeEventListener('keydown', onKey3D);
+            scene.traverse(function (ch) {
+                if (ch.geometry) ch.geometry.dispose();
+                if (ch.material) {
+                    if (ch.material.map) ch.material.map.dispose();
+                    ch.material.dispose();
+                }
+            });
+            if (envMap) envMap.dispose();
+            pmremGen.dispose();
+            renderer.dispose();
+            overlay.remove();
+        }
+        function onKey3D(e) { if (e.key === 'Escape') close3D(); }
+        overlay.querySelector('.viewer3d-close').addEventListener('click', close3D);
+        document.addEventListener('keydown', onKey3D);
+    }
+
+    // === Wall Viewer Modal (Draggable Positioning) ===
 
     function openWallViewer(framedSrc, styleName) {
         var modal = document.createElement('div');
         modal.className = 'wall-modal';
 
         modal.innerHTML =
-            '<div class="wall-modal-panel">' +
+            '<div class="wall-modal-panel wall-modal-wide">' +
                 '<div class="wall-modal-header">' +
                     '<div>' +
                         '<div class="wall-modal-title">Preview on Your Wall</div>' +
-                        '<div class="wall-modal-subtitle">Upload or snap a photo of your wall and see how <strong>' + esc(styleName) + '</strong> looks in your space.</div>' +
+                        '<div class="wall-modal-subtitle">Upload a photo of your wall, then position <strong>' + esc(styleName) + '</strong> exactly where you want it.</div>' +
                     '</div>' +
                     '<button class="wall-modal-close" type="button">&times;</button>' +
                 '</div>' +
@@ -838,10 +1389,31 @@
                     '<div class="wall-upload-hint">Take a photo with your phone or upload from your gallery</div>' +
                     '<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden />' +
                 '</div>' +
+                '<div class="wall-position-stage hidden">' +
+                    '<div class="wall-position-wrap">' +
+                        '<img class="wall-bg-image" />' +
+                        '<img class="wall-art-overlay" />' +
+                    '</div>' +
+                    '<div class="wall-position-controls">' +
+                        '<div class="wall-size-row">' +
+                            '<label>Size</label>' +
+                            '<input type="range" class="wall-size-slider" min="10" max="80" value="35" />' +
+                        '</div>' +
+                        '<div class="wall-position-actions">' +
+                            '<button class="btn-secondary wall-retry-btn" type="button">Try Different Photo</button>' +
+                            (typeof THREE !== 'undefined'
+                                ? '<button class="btn-secondary wall-3d-btn" type="button">' +
+                                    '<svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M10 2l8 4v8l-8 4-8-4V6l8-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 10v8M10 10l8-4M10 10L2 6" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>' +
+                                    ' 3D Preview</button>'
+                                : '') +
+                            '<button class="btn-primary wall-render-btn" type="button">Render Final</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
                 '<div class="wall-generating hidden">' +
                     '<div class="spinner" style="margin:0 auto 1rem;"><div class="spinner-frame"></div></div>' +
-                    '<div>Placing your art on the wall<span class="loading-dots"><span>.</span><span>.</span><span>.</span></span></div>' +
-                    '<div class="wall-generating-hint">This may take a moment</div>' +
+                    '<div>Refining your wall preview<span class="loading-dots"><span>.</span><span>.</span><span>.</span></span></div>' +
+                    '<div class="wall-generating-hint">Adding realistic shadows and lighting</div>' +
                 '</div>' +
                 '<div class="wall-result hidden"></div>' +
                 '<div class="wall-error hidden"></div>' +
@@ -850,73 +1422,176 @@
         var panel = modal.querySelector('.wall-modal-panel');
         var dropZoneEl = modal.querySelector('#wall-drop-zone');
         var wallFileInput = dropZoneEl.querySelector('input[type="file"]');
+        var positionStage = modal.querySelector('.wall-position-stage');
+        var positionWrap = modal.querySelector('.wall-position-wrap');
+        var wallBgImg = modal.querySelector('.wall-bg-image');
+        var artOverlay = modal.querySelector('.wall-art-overlay');
+        var sizeSlider = modal.querySelector('.wall-size-slider');
         var generatingEl = modal.querySelector('.wall-generating');
         var resultEl = modal.querySelector('.wall-result');
         var errorEl = modal.querySelector('.wall-error');
+        var wallPhotoDataUrl = null;
 
         // Close modal
         function closeModal() {
             modal.remove();
             document.removeEventListener('keydown', onModalKey);
         }
-
-        function onModalKey(e) {
-            if (e.key === 'Escape') closeModal();
-        }
-
-        modal.addEventListener('click', function (e) {
-            if (e.target === modal) closeModal();
-        });
+        function onModalKey(e) { if (e.key === 'Escape') closeModal(); }
+        modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
         modal.querySelector('.wall-modal-close').addEventListener('click', closeModal);
         document.addEventListener('keydown', onModalKey);
 
-        // Drag & drop on wall upload zone
-        dropZoneEl.addEventListener('dragover', function (e) {
-            e.preventDefault();
-            dropZoneEl.classList.add('drag-over');
-        });
-        dropZoneEl.addEventListener('dragleave', function () {
-            dropZoneEl.classList.remove('drag-over');
-        });
+        // Wall photo upload zone
+        dropZoneEl.addEventListener('dragover', function (e) { e.preventDefault(); dropZoneEl.classList.add('drag-over'); });
+        dropZoneEl.addEventListener('dragleave', function () { dropZoneEl.classList.remove('drag-over'); });
         dropZoneEl.addEventListener('drop', function (e) {
             e.preventDefault();
             dropZoneEl.classList.remove('drag-over');
-            if (e.dataTransfer.files.length > 0) {
-                handleWallPhoto(e.dataTransfer.files[0]);
-            }
+            if (e.dataTransfer.files.length > 0) handleWallPhoto(e.dataTransfer.files[0]);
         });
-        dropZoneEl.addEventListener('click', function () {
-            wallFileInput.click();
-        });
+        dropZoneEl.addEventListener('click', function () { wallFileInput.click(); });
         wallFileInput.addEventListener('change', function () {
-            if (wallFileInput.files.length > 0) {
-                handleWallPhoto(wallFileInput.files[0]);
-            }
+            if (wallFileInput.files.length > 0) handleWallPhoto(wallFileInput.files[0]);
         });
 
-        // Handle wall photo upload
-        async function handleWallPhoto(file) {
+        function handleWallPhoto(file) {
             if (!file.type.startsWith('image/')) return;
+            var reader = new FileReader();
+            reader.onload = function (ev) {
+                wallPhotoDataUrl = ev.target.result;
+                wallBgImg.src = wallPhotoDataUrl;
+                artOverlay.src = framedSrc;
+                dropZoneEl.classList.add('hidden');
+                errorEl.classList.add('hidden');
+                resultEl.classList.add('hidden');
+                generatingEl.classList.add('hidden');
+                positionStage.classList.remove('hidden');
+                // Center art at 35% width
+                artOverlay.onload = function () {
+                    var wrapW = positionWrap.clientWidth;
+                    var wrapH = positionWrap.clientHeight;
+                    var artW = wrapW * 0.35;
+                    artOverlay.style.width = artW + 'px';
+                    artOverlay.style.left = ((wrapW - artW) / 2) + 'px';
+                    var artH = artOverlay.clientHeight || artW * 0.67;
+                    artOverlay.style.top = ((wrapH - artH) / 2) + 'px';
+                };
+            };
+            reader.readAsDataURL(file);
+        }
 
-            dropZoneEl.classList.add('hidden');
-            errorEl.classList.add('hidden');
-            resultEl.classList.add('hidden');
+        // Drag art overlay (mouse + touch)
+        var isDragging = false, dragOX = 0, dragOY = 0;
+
+        artOverlay.addEventListener('mousedown', startDrag);
+        artOverlay.addEventListener('touchstart', startDrag, { passive: false });
+
+        function startDrag(e) {
+            isDragging = true;
+            var pt = e.touches ? e.touches[0] : e;
+            var rect = artOverlay.getBoundingClientRect();
+            dragOX = pt.clientX - rect.left;
+            dragOY = pt.clientY - rect.top;
+            e.preventDefault();
+        }
+
+        document.addEventListener('mousemove', moveDrag);
+        document.addEventListener('touchmove', moveDrag, { passive: false });
+        function moveDrag(e) {
+            if (!isDragging) return;
+            var pt = e.touches ? e.touches[0] : e;
+            var wr = positionWrap.getBoundingClientRect();
+            var x = pt.clientX - wr.left - dragOX;
+            var y = pt.clientY - wr.top - dragOY;
+            x = Math.max(-artOverlay.clientWidth * 0.5, Math.min(x, positionWrap.clientWidth - artOverlay.clientWidth * 0.5));
+            y = Math.max(-artOverlay.clientHeight * 0.5, Math.min(y, positionWrap.clientHeight - artOverlay.clientHeight * 0.5));
+            artOverlay.style.left = x + 'px';
+            artOverlay.style.top = y + 'px';
+            e.preventDefault();
+        }
+
+        document.addEventListener('mouseup', endDrag);
+        document.addEventListener('touchend', endDrag);
+        function endDrag() { isDragging = false; }
+
+        // Size slider
+        sizeSlider.addEventListener('input', function () {
+            var pct = parseInt(this.value) / 100;
+            var wrapW = positionWrap.clientWidth;
+            artOverlay.style.width = (wrapW * pct) + 'px';
+        });
+
+        // Try Different Photo
+        modal.querySelector('.wall-retry-btn').addEventListener('click', function () {
+            positionStage.classList.add('hidden');
+            wallFileInput.value = '';
+            wallPhotoDataUrl = null;
+            dropZoneEl.classList.remove('hidden');
+        });
+
+        // 3D Preview
+        var wall3dBtn = modal.querySelector('.wall-3d-btn');
+        if (wall3dBtn) {
+            wall3dBtn.addEventListener('click', function () {
+                var wrapW = positionWrap.clientWidth;
+                var wrapH = positionWrap.clientHeight;
+                var relPos = {
+                    x: (artOverlay.offsetLeft + artOverlay.clientWidth / 2) / wrapW,
+                    y: (artOverlay.offsetTop + artOverlay.clientHeight / 2) / wrapH,
+                    scale: artOverlay.clientWidth / wrapW
+                };
+                closeModal();
+                openWall3DViewer(wallPhotoDataUrl, framedSrc, relPos);
+            });
+        }
+
+        // Render Final — canvas composite + AI refinement
+        modal.querySelector('.wall-render-btn').addEventListener('click', async function () {
+            positionStage.classList.add('hidden');
             generatingEl.classList.remove('hidden');
 
             try {
-                var formData = new FormData();
-                formData.append('wallPhoto', file);
-                formData.append('framedImageBase64', framedSrc.replace(/^data:image\/\w+;base64,/, ''));
+                // Composite on canvas
+                var canvas = document.createElement('canvas');
+                var wallImg = new Image();
+                wallImg.src = wallPhotoDataUrl;
+                await new Promise(function (res) { wallImg.onload = res; });
 
-                var response = await fetch('/Home/WallPreview', {
+                canvas.width = wallImg.naturalWidth;
+                canvas.height = wallImg.naturalHeight;
+                var ctx = canvas.getContext('2d');
+                ctx.drawImage(wallImg, 0, 0);
+
+                // Map art overlay position to canvas coordinates
+                var wrapW = positionWrap.clientWidth;
+                var wrapH = positionWrap.clientHeight;
+                var relX = artOverlay.offsetLeft / wrapW;
+                var relY = artOverlay.offsetTop / wrapH;
+                var relW = artOverlay.clientWidth / wrapW;
+
+                var artImg = new Image();
+                artImg.src = framedSrc;
+                await new Promise(function (res) { artImg.onload = res; });
+
+                var drawW = relW * canvas.width;
+                var drawH = drawW / (artImg.naturalWidth / artImg.naturalHeight);
+                ctx.drawImage(artImg, relX * canvas.width, relY * canvas.height, drawW, drawH);
+
+                // Convert to blob and send
+                var blob = await new Promise(function (res) {
+                    canvas.toBlob(function (b) { res(b); }, 'image/jpeg', 0.92);
+                });
+
+                var formData = new FormData();
+                formData.append('compositeImage', blob, 'composite.jpg');
+
+                var response = await fetch('/Home/WallRefine', {
                     method: 'POST',
                     body: formData
                 });
 
-                if (!response.ok) {
-                    throw new Error('Server returned ' + response.status);
-                }
-
+                if (!response.ok) throw new Error('Server returned ' + response.status);
                 var data = await response.json();
                 generatingEl.classList.add('hidden');
 
@@ -924,34 +1599,31 @@
                     resultEl.innerHTML =
                         '<img src="data:image/png;base64,' + data.previewImageBase64 + '" alt="Your art on the wall" />' +
                         '<div class="wall-result-actions">' +
-                            '<button class="btn-secondary" type="button">Try Another Photo</button>' +
+                            '<button class="btn-secondary wall-result-retry" type="button">Try Another Photo</button>' +
                         '</div>';
                     resultEl.classList.remove('hidden');
-
-                    resultEl.querySelector('.btn-secondary').addEventListener('click', function () {
+                    resultEl.querySelector('.wall-result-retry').addEventListener('click', function () {
                         resultEl.classList.add('hidden');
                         wallFileInput.value = '';
+                        wallPhotoDataUrl = null;
                         dropZoneEl.classList.remove('hidden');
                     });
                 } else {
                     throw new Error('No preview image returned');
                 }
-
             } catch (err) {
-                console.error('Wall preview failed:', err);
+                console.error('Wall refine failed:', err);
                 generatingEl.classList.add('hidden');
                 errorEl.innerHTML =
                     '<p>Could not generate the wall preview. Please try again.</p>' +
-                    '<button class="btn-secondary" type="button">Try Again</button>';
+                    '<button class="btn-secondary wall-error-retry" type="button">Try Again</button>';
                 errorEl.classList.remove('hidden');
-
-                errorEl.querySelector('.btn-secondary').addEventListener('click', function () {
+                errorEl.querySelector('.wall-error-retry').addEventListener('click', function () {
                     errorEl.classList.add('hidden');
-                    wallFileInput.value = '';
-                    dropZoneEl.classList.remove('hidden');
+                    positionStage.classList.remove('hidden');
                 });
             }
-        }
+        });
 
         document.body.appendChild(modal);
     }

@@ -179,6 +179,70 @@ public class OpenAIFramingService
     }
 
     // ==========================================================================
+    // Wall Refine: AI refinement of composited wall + art image
+    // ==========================================================================
+
+    public async Task<string> WallRefineAsync(byte[] compositeData, string mimeType)
+    {
+        var base64 = Convert.ToBase64String(compositeData);
+        var dataUri = $"data:{mimeType};base64,{base64}";
+
+        var prompt = "You are a professional interior design visualization tool.\n\n" +
+            "You are given a photo of a wall with framed artwork already placed on it (composited digitally).\n\n" +
+            "YOUR TASK: Refine this image to make the framed artwork look like it is physically hanging on the wall.\n\n" +
+            "CRITICAL RULES:\n" +
+            "- Keep the artwork at the EXACT same position and size\n" +
+            "- Add a realistic shadow behind the frame (soft drop shadow, matching the room's light direction)\n" +
+            "- Match the color temperature of the artwork to the room's lighting\n" +
+            "- Adjust the framed art's brightness/contrast to match the wall's ambient lighting\n" +
+            "- The result should look like a real photograph of art hanging on the wall\n" +
+            "- Do NOT move, resize, or alter the artwork's content\n\n" +
+            "Generate ONLY the refined image. No text response is needed.";
+
+        var requestBody = new
+        {
+            model = _generationModel,
+            input = new object[]
+            {
+                new
+                {
+                    role = "user",
+                    content = new object[]
+                    {
+                        new { type = "input_image", image_url = dataUri },
+                        new { type = "input_text", text = prompt }
+                    }
+                }
+            },
+            tools = new object[]
+            {
+                new
+                {
+                    type = "image_generation",
+                    quality = _previewQuality,
+                    size = _previewSize
+                }
+            }
+        };
+
+        var json = JsonSerializer.Serialize(requestBody);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        _logger.LogInformation("Sending wall refine request using {Model}", _generationModel);
+
+        var response = await _httpClient.PostAsync("v1/responses", content);
+        var responseBody = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError("Wall refine API error: {StatusCode} - {Body}", response.StatusCode, responseBody);
+            throw new HttpRequestException($"OpenAI API returned {response.StatusCode} for wall refine");
+        }
+
+        return ExtractGeneratedImage(responseBody);
+    }
+
+    // ==========================================================================
     // Vendor sourcing
     // ==========================================================================
 
