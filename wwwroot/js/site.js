@@ -19,6 +19,20 @@
     // Fallback tier names if analysis doesn't provide them
     var defaultTierNames = ['Option 1', 'Option 2', 'Option 3'];
 
+    // Store the current analysis for feedback
+    var currentAnalysis = null;
+
+    // Store current file for regeneration
+    var currentFile = null;
+
+    // Store generated options and cards for comparison mode
+    var generatedOptions = [null, null, null];
+    var generatedCards = [null, null, null];
+
+    // Comparison mode state
+    var comparisonMode = false;
+    var selectedForCompare = new Set();
+
     // === Section visibility ===
 
     function showSection(section) {
@@ -63,7 +77,32 @@
     function resetToUpload() {
         fileInput.value = '';
         resultsGrid.innerHTML = '';
+        currentAnalysis = null;
+        currentFile = null;
+        generatedOptions = [null, null, null];
+        generatedCards = [null, null, null];
+        comparisonMode = false;
+        selectedForCompare = new Set();
+        hideComparisonUI();
         showSection(uploadSection);
+    }
+
+    // === User Context ===
+
+    function getUserContext() {
+        var room = document.getElementById('ctx-room');
+        var wall = document.getElementById('ctx-wall');
+        var decor = document.getElementById('ctx-decor');
+        var purpose = document.getElementById('ctx-purpose');
+
+        var context = {};
+        if (room && room.value) context.roomType = room.value;
+        if (wall && wall.value) context.wallColor = wall.value;
+        if (decor && decor.value) context.decorStyle = decor.value;
+        if (purpose && purpose.value) context.framePurpose = purpose.value;
+
+        // Only return if at least one field is set
+        return Object.keys(context).length > 0 ? context : null;
     }
 
     // === File handling ===
@@ -78,6 +117,8 @@
             showError('Image must be under 20 MB.');
             return;
         }
+
+        currentFile = file;
 
         // Show preview
         const reader = new FileReader();
@@ -97,11 +138,17 @@
         var analysisStep = document.getElementById('step-analysis');
         if (analysisStep) analysisStep.classList.add('active');
 
-        // Step 1: Analyze the artwork (GPT-4o mini — fast & cheap)
+        // Step 1: Analyze the artwork (two-pass: detect + expert recommendations)
         var analysis = null;
         try {
             var formData = new FormData();
             formData.append('image', file);
+
+            // Include user context if provided
+            var userContext = getUserContext();
+            if (userContext) {
+                formData.append('userContextJson', JSON.stringify(userContext));
+            }
 
             var response = await fetch('/Home/Analyze', {
                 method: 'POST',
@@ -119,6 +166,8 @@
             console.warn('Analysis error, proceeding with empty analysis:', err);
             analysis = { artStyle: '', dominantColors: [], mood: '', recommendations: [] };
         }
+
+        currentAnalysis = analysis;
 
         if (analysisStep) analysisStep.classList.remove('active');
         if (analysisStep) analysisStep.classList.add('done');
@@ -157,6 +206,7 @@
 
     async function generateFramesSequentially(file, analysis, tierNames) {
         var analysisJson = JSON.stringify(analysis);
+        var completedCount = 0;
 
         for (var i = 0; i < 3; i++) {
             var displayName = tierNames[i] || defaultTierNames[i];
@@ -184,9 +234,25 @@
 
                 var option = await response.json();
 
+                // Attach recommendation reasoning from analysis
+                if (analysis.recommendations && analysis.recommendations[i]) {
+                    option._recommendation = analysis.recommendations[i];
+                }
+
                 // Replace placeholder with the real card
                 var card = createFrameCard(option, i + 1);
                 resultsGrid.replaceChild(card, placeholder);
+
+                // Store for comparison and regeneration
+                generatedOptions[i] = option;
+                generatedCards[i] = card;
+                completedCount++;
+
+                // Enable compare button after 2+ frames
+                if (completedCount >= 2) {
+                    var compareBtn = document.getElementById('compare-btn');
+                    if (compareBtn) compareBtn.disabled = false;
+                }
 
             } catch (err) {
                 console.error('Frame generation failed for style ' + i + ':', err);
@@ -271,6 +337,36 @@
         }
     }
 
+    // === Feedback ===
+
+    async function submitFeedback(rating, option, tier, card) {
+        var feedback = {
+            artStyle: currentAnalysis ? currentAnalysis.artStyle : '',
+            mood: currentAnalysis ? currentAnalysis.mood : '',
+            tier: tier,
+            styleName: option.styleName || '',
+            rating: rating,
+            wasChosen: false,
+            mouldingDescription: option.products && option.products[0] ? option.products[0].description : '',
+            matDescription: option.products && option.products[1] ? option.products[1].description : ''
+        };
+
+        var feedbackBtns = card.querySelector('.feedback-buttons');
+        if (feedbackBtns) {
+            feedbackBtns.innerHTML = '<span class="feedback-thanks">Thanks for your feedback!</span>';
+        }
+
+        try {
+            await fetch('/Home/Feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(feedback)
+            });
+        } catch (err) {
+            console.warn('Feedback submission failed:', err);
+        }
+    }
+
     // === Frame card ===
 
     function createFrameCard(option, number) {
@@ -295,12 +391,33 @@
             ).join('');
         }
 
+        // "Why This Frame" reasoning from the expert knowledge base
+        var reasoningHtml = '';
+        if (option._recommendation && option._recommendation.reasoning) {
+            reasoningHtml =
+                '<div class="reasoning-section">' +
+                    '<div class="reasoning-header">' +
+                        '<svg viewBox="0 0 20 20" fill="none" width="14" height="14"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v5M10 13v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>' +
+                        ' Why This Frame' +
+                    '</div>' +
+                    renderStructuredReasoning(option._recommendation.reasoning) +
+                '</div>';
+        }
+
+        var tierNames = ['Good', 'Better', 'Best'];
+        var tier = tierNames[number - 1] || '';
+
         var hasProducts = option.products && option.products.length > 0;
 
         card.innerHTML =
             '<div class="frame-card-header">' +
                 '<span class="style-badge">' + esc(option.styleName) + '</span>' +
-                '<span class="style-number">Option ' + number + '</span>' +
+                '<div class="header-right">' +
+                    '<button class="btn-regenerate" type="button" title="Regenerate this option" data-index="' + (number - 1) + '">' +
+                        '<svg viewBox="0 0 16 16" fill="none" width="14" height="14"><path d="M13.5 2.5v4h-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.5 8a5.5 5.5 0 019.37-3.87L13.5 6.5M2.5 13.5v-4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.5 8A5.5 5.5 0 014.13 11.87L2.5 9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+                    '</button>' +
+                    '<span class="style-number">Option ' + number + '</span>' +
+                '</div>' +
             '</div>' +
             (imageSrc
                 ? '<div class="frame-image-container" data-src="' + imageSrc + '" data-name="' + esc(option.styleName) + '">' +
@@ -311,6 +428,7 @@
                       'Image not available' +
                   '</div>'
             ) +
+            reasoningHtml +
             '<div class="product-details">' +
                 '<h4>Design Details</h4>' +
                 (productsHtml || '<p style="color:var(--text-muted);font-size:0.85rem;">Design details not available</p>') +
@@ -328,7 +446,26 @@
                           '</button>'
                         : '') +
                 '</div>' +
+                '<div class="feedback-buttons">' +
+                    '<span class="feedback-label">How is this recommendation?</span>' +
+                    '<button class="btn-feedback btn-thumbs-up" type="button" title="Good recommendation">' +
+                        '<svg viewBox="0 0 20 20" fill="none" width="16" height="16"><path d="M7 10V17H4a1 1 0 01-1-1v-5a1 1 0 011-1h3zm0 0l2.5-5.5a2 2 0 013.5 1V8h3.38a2 2 0 011.96 2.36l-1 5A2 2 0 0115.38 17H7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+                    '</button>' +
+                    '<button class="btn-feedback btn-thumbs-down" type="button" title="Needs improvement">' +
+                        '<svg viewBox="0 0 20 20" fill="none" width="16" height="16"><path d="M13 10V3h3a1 1 0 011 1v5a1 1 0 01-1 1h-3zm0 0l-2.5 5.5a2 2 0 01-3.5-1V12H3.62a2 2 0 01-1.96-2.36l1-5A2 2 0 014.62 3H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+                    '</button>' +
+                '</div>' +
             '</div>';
+
+        // Regenerate button
+        var regenBtn = card.querySelector('.btn-regenerate');
+        if (regenBtn) {
+            regenBtn.addEventListener('click', function() {
+                var idx = parseInt(this.dataset.index);
+                this.classList.add('spinning');
+                regenerateOption(idx);
+            });
+        }
 
         // Lightbox on image click/tap
         const imgContainer = card.querySelector('.frame-image-container[data-src]');
@@ -354,7 +491,278 @@
             });
         }
 
+        // Feedback buttons
+        var thumbsUp = card.querySelector('.btn-thumbs-up');
+        var thumbsDown = card.querySelector('.btn-thumbs-down');
+        if (thumbsUp) {
+            thumbsUp.addEventListener('click', function () {
+                submitFeedback('up', option, tier, card);
+            });
+        }
+        if (thumbsDown) {
+            thumbsDown.addEventListener('click', function () {
+                submitFeedback('down', option, tier, card);
+            });
+        }
+
         return card;
+    }
+
+    // === Regenerate Single Option ===
+
+    async function regenerateOption(styleIndex) {
+        if (!currentFile || !currentAnalysis) return;
+        var cardIndex = styleIndex; // 0-based
+        var displayName = defaultTierNames[cardIndex];
+        if (currentAnalysis.recommendations && currentAnalysis.recommendations[cardIndex]) {
+            displayName = currentAnalysis.recommendations[cardIndex].tierName || displayName;
+        }
+
+        // Replace card with loading placeholder
+        var placeholder = createPlaceholderCard(displayName, cardIndex + 1);
+        var oldCard = generatedCards[cardIndex];
+        if (oldCard && oldCard.parentNode) {
+            oldCard.parentNode.replaceChild(placeholder, oldCard);
+        }
+
+        try {
+            var formData = new FormData();
+            formData.append('image', currentFile);
+            formData.append('styleIndex', cardIndex);
+            formData.append('analysisJson', JSON.stringify(currentAnalysis));
+
+            var response = await fetch('/Home/FrameOne', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                placeholder.querySelector('.placeholder-content').innerHTML =
+                    '<p style="color:var(--error);">Failed to regenerate.</p>' +
+                    '<button class="btn-card-action" onclick="regenerateOption(' + cardIndex + ')" style="margin-top:0.5rem;">Retry</button>';
+                return;
+            }
+
+            var option = await response.json();
+            if (currentAnalysis.recommendations && currentAnalysis.recommendations[cardIndex]) {
+                option._recommendation = currentAnalysis.recommendations[cardIndex];
+            }
+
+            var card = createFrameCard(option, cardIndex + 1);
+            placeholder.parentNode.replaceChild(card, placeholder);
+            generatedOptions[cardIndex] = option;
+            generatedCards[cardIndex] = card;
+
+        } catch (err) {
+            console.error('Regeneration failed for style ' + cardIndex + ':', err);
+            placeholder.querySelector('.placeholder-content').innerHTML =
+                '<p style="color:var(--error);">Failed to regenerate.</p>' +
+                '<button class="btn-card-action" onclick="regenerateOption(' + cardIndex + ')" style="margin-top:0.5rem;">Retry</button>';
+        }
+    }
+
+    // === Structured Reasoning Parser ===
+
+    function parseStructuredReasoning(text) {
+        if (!text) return null;
+        // Check if it contains the pipe-delimited format
+        var categories = ['COLOR', 'STYLE', 'MAT', 'BALANCE', 'RULES'];
+        var hasFormat = categories.some(function(cat) {
+            return text.indexOf(cat + ':') >= 0;
+        });
+        if (!hasFormat) return null;
+
+        var parts = text.split('|').map(function(s) { return s.trim(); });
+        var result = {};
+        parts.forEach(function(part) {
+            var colonIdx = part.indexOf(':');
+            if (colonIdx > 0) {
+                var label = part.substring(0, colonIdx).trim().toUpperCase();
+                var value = part.substring(colonIdx + 1).trim();
+                if (categories.indexOf(label) >= 0 && value) {
+                    result[label] = value;
+                }
+            }
+        });
+
+        return Object.keys(result).length > 0 ? result : null;
+    }
+
+    function renderStructuredReasoning(reasoning) {
+        var parsed = parseStructuredReasoning(reasoning);
+        if (!parsed) {
+            // Fallback: render as plain paragraph
+            return '<p class="reasoning-text">' + esc(reasoning) + '</p>';
+        }
+
+        var categoryLabels = {
+            'COLOR': 'Color Match',
+            'STYLE': 'Style Match',
+            'MAT': 'Mat Selection',
+            'BALANCE': 'Overall Balance',
+            'RULES': 'Expert Rules Applied'
+        };
+
+        var html = '<div class="reasoning-structured">';
+        Object.keys(parsed).forEach(function(key) {
+            var label = categoryLabels[key] || key;
+            var isRules = key === 'RULES';
+            html += '<div class="reasoning-category">' +
+                '<span class="reasoning-cat-label">' + esc(label) + '</span>' +
+                '<span class="' + (isRules ? 'reasoning-rules' : 'reasoning-cat-text') + '">' + esc(parsed[key]) + '</span>' +
+            '</div>';
+        });
+        html += '</div>';
+        return html;
+    }
+
+    // === Comparison Mode ===
+
+    function toggleComparisonMode() {
+        comparisonMode = !comparisonMode;
+        var selectionBar = document.getElementById('compare-selection-bar');
+        var compareBtn = document.getElementById('compare-btn');
+        var comparisonView = document.getElementById('comparison-view');
+
+        if (comparisonMode) {
+            if (compareBtn) compareBtn.textContent = 'Cancel Compare';
+            selectedForCompare = new Set();
+            if (selectionBar) {
+                selectionBar.classList.remove('hidden');
+                updateCompareSelectionBar();
+            }
+            if (comparisonView) comparisonView.classList.add('hidden');
+        } else {
+            if (compareBtn) compareBtn.textContent = 'Compare';
+            selectedForCompare = new Set();
+            if (selectionBar) selectionBar.classList.add('hidden');
+            if (comparisonView) comparisonView.classList.add('hidden');
+            resultsGrid.classList.remove('hidden');
+        }
+    }
+
+    function updateCompareSelectionBar() {
+        var bar = document.getElementById('compare-selection-bar');
+        if (!bar) return;
+
+        var chipsHtml = '';
+        for (var i = 0; i < 3; i++) {
+            if (!generatedOptions[i]) continue;
+            var name = generatedOptions[i].styleName || defaultTierNames[i];
+            var checked = selectedForCompare.has(i) ? ' checked' : '';
+            chipsHtml +=
+                '<label class="compare-chip">' +
+                    '<input type="checkbox" value="' + i + '"' + checked + ' />' +
+                    '<span class="compare-chip-label">' + esc(name) + '</span>' +
+                '</label>';
+        }
+
+        var showEnabled = selectedForCompare.size >= 2 ? '' : ' disabled';
+        bar.innerHTML = chipsHtml +
+            '<button class="btn-primary compare-show-btn"' + showEnabled + ' id="show-comparison-btn">Show Comparison</button>';
+
+        bar.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+            cb.addEventListener('change', function() {
+                var idx = parseInt(this.value);
+                if (this.checked) selectedForCompare.add(idx);
+                else selectedForCompare.delete(idx);
+                updateCompareSelectionBar();
+            });
+        });
+
+        var showBtn = bar.querySelector('#show-comparison-btn');
+        if (showBtn) {
+            showBtn.addEventListener('click', showComparison);
+        }
+    }
+
+    function showComparison() {
+        if (selectedForCompare.size < 2) return;
+
+        var comparisonView = document.getElementById('comparison-view');
+        if (!comparisonView) return;
+
+        resultsGrid.classList.add('hidden');
+
+        var indices = Array.from(selectedForCompare).sort();
+        var count = indices.length;
+        var gridClass = count === 2 ? 'compare-grid-2' : 'compare-grid-3';
+
+        var html = '<div class="' + gridClass + '">';
+
+        // Header row
+        indices.forEach(function(idx) {
+            var opt = generatedOptions[idx];
+            var name = opt ? opt.styleName : defaultTierNames[idx];
+            html += '<div class="compare-cell compare-header"><span class="style-badge">' + esc(name) + '</span><span class="style-number">Option ' + (idx + 1) + '</span></div>';
+        });
+
+        // Image row
+        indices.forEach(function(idx) {
+            var opt = generatedOptions[idx];
+            if (opt && opt.framedImageBase64) {
+                html += '<div class="compare-cell compare-image"><img src="data:image/png;base64,' + opt.framedImageBase64 + '" alt="' + esc(opt.styleName) + '" /></div>';
+            } else {
+                html += '<div class="compare-cell compare-image"><div class="compare-no-image">No image</div></div>';
+            }
+        });
+
+        // Reasoning row
+        var reasonings = indices.map(function(idx) {
+            var opt = generatedOptions[idx];
+            return opt && opt._recommendation ? opt._recommendation.reasoning : '';
+        });
+        indices.forEach(function(idx, i) {
+            html += '<div class="compare-cell compare-reasoning">' +
+                '<div class="compare-cell-label">Why This Frame</div>' +
+                renderStructuredReasoning(reasonings[i]) +
+            '</div>';
+        });
+
+        // Products row
+        indices.forEach(function(idx) {
+            var opt = generatedOptions[idx];
+            html += '<div class="compare-cell compare-products">';
+            html += '<div class="compare-cell-label">Design Details</div>';
+            if (opt && opt.products) {
+                opt.products.forEach(function(p) {
+                    html += '<div class="product-item">' +
+                        '<div class="product-type-label">' + esc(p.type) + '</div>' +
+                        '<div class="product-vendor-name">' + esc(p.vendor) + '</div>' +
+                        '<div class="product-line">' + esc(p.product) + '</div>' +
+                        (p.finish ? '<div class="product-finish">' + esc(p.finish) + '</div>' : '') +
+                    '</div>';
+                });
+            }
+            html += '</div>';
+        });
+
+        // Highlight differences
+        html += '</div>';
+        html += '<div style="text-align:center; margin-top:1.5rem;">' +
+            '<button class="btn-secondary" id="exit-compare-btn">Exit Compare</button>' +
+        '</div>';
+
+        comparisonView.innerHTML = html;
+        comparisonView.classList.remove('hidden');
+
+        document.getElementById('exit-compare-btn').addEventListener('click', function() {
+            comparisonView.classList.add('hidden');
+            resultsGrid.classList.remove('hidden');
+            comparisonMode = false;
+            var compareBtn = document.getElementById('compare-btn');
+            if (compareBtn) compareBtn.textContent = 'Compare';
+            var selBar = document.getElementById('compare-selection-bar');
+            if (selBar) selBar.classList.add('hidden');
+        });
+    }
+
+    function hideComparisonUI() {
+        var selectionBar = document.getElementById('compare-selection-bar');
+        var comparisonView = document.getElementById('comparison-view');
+        if (selectionBar) selectionBar.classList.add('hidden');
+        if (comparisonView) comparisonView.classList.add('hidden');
+        resultsGrid.classList.remove('hidden');
     }
 
     // === Lightbox ===

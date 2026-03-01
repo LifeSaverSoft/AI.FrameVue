@@ -1,0 +1,1499 @@
+@{
+    ViewData["Title"] = "Training Admin";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI.FrameVue — Training Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --bg-primary: #08080f;
+            --bg-secondary: #0e0e1a;
+            --bg-card: #141422;
+            --accent: #c9a84c;
+            --accent-light: #d4b96a;
+            --text-primary: #e8e8f0;
+            --text-secondary: #8888a0;
+            --border: #2a2a40;
+            --success: #4caf50;
+            --danger: #e74c3c;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 1.5rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.5rem;
+            color: var(--accent);
+        }
+
+        .header .stats {
+            display: flex;
+            gap: 1.5rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .header .stat-value { color: var(--accent); font-weight: 600; }
+
+        .auth-gate {
+            max-width: 400px;
+            margin: 4rem auto;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .auth-gate h2 {
+            font-family: 'Playfair Display', serif;
+            margin-bottom: 1rem;
+            color: var(--accent);
+        }
+
+        .auth-gate input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .btn {
+            padding: 0.6rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: var(--bg-primary);
+        }
+
+        .btn-primary:hover { background: var(--accent-light); }
+
+        .btn-danger {
+            background: transparent;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+
+        .btn-danger:hover { background: var(--danger); color: white; }
+
+        .btn-small { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+
+        .tab {
+            padding: 0.6rem 1.2rem;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 6px 6px 0 0;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .tab.active { background: var(--bg-card); color: var(--accent); }
+        .tab:hover { color: var(--text-primary); }
+
+        .section { display: none; }
+        .section.active { display: block; }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .card-header h3 { font-size: 1rem; color: var(--accent); }
+
+        .badge {
+            font-size: 0.75rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            background: rgba(201, 168, 76, 0.15);
+            color: var(--accent);
+        }
+
+        .card p { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 0.5rem; }
+
+        .examples-list {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            padding-left: 1.2rem;
+            margin-top: 0.5rem;
+        }
+
+        .examples-list li { margin-bottom: 0.3rem; }
+
+        .form-group { margin-bottom: 1rem; }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.4rem;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-family: inherit;
+        }
+
+        .form-group textarea { min-height: 80px; resize: vertical; }
+
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+        .add-form {
+            background: var(--bg-card);
+            border: 1px dashed var(--border);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .add-form h3 {
+            color: var(--accent);
+            margin-bottom: 1rem;
+            font-family: 'Playfair Display', serif;
+        }
+
+        .card-actions { display: flex; gap: 0.5rem; }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--success);
+            color: white;
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 999;
+        }
+
+        .toast.show { opacity: 1; }
+
+        .hidden { display: none !important; }
+
+        .back-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.85rem;
+        }
+
+        .back-link:hover { color: var(--accent); }
+
+        /* Voice dictation */
+        .form-group label {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .mic-btn {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .mic-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .mic-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .mic-btn.recording {
+            background: var(--danger);
+            border-color: var(--danger);
+            color: white;
+            animation: mic-pulse 1.2s ease-in-out infinite;
+        }
+
+        @@keyframes mic-pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4); }
+            50% { box-shadow: 0 0 0 6px rgba(231, 76, 60, 0); }
+        }
+
+        .no-speech-api .mic-btn { display: none; }
+
+        /* Browse catalog */
+        .product-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+
+        .product-card:hover { border-color: var(--accent); }
+
+        .product-card img {
+            width: 100%;
+            height: 160px;
+            object-fit: cover;
+            background: var(--bg-secondary);
+        }
+
+        .product-card .card-body { padding: 0.75rem; }
+        .product-card .card-body h4 { font-size: 0.85rem; margin-bottom: 0.3rem; color: var(--text-primary); }
+        .product-card .card-body p { font-size: 0.75rem; color: var(--text-secondary); margin: 0; line-height: 1.4; }
+
+        .color-swatch {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            border: 1px solid var(--border);
+            vertical-align: middle;
+            margin-right: 4px;
+        }
+
+        .page-btn {
+            padding: 0.4rem 0.8rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .page-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .page-btn.active { background: var(--accent); color: var(--bg-primary); border-color: var(--accent); }
+
+        /* === Combobox === */
+        .combobox { position: relative; }
+        .combobox input { padding-right: 2rem !important; }
+        .combobox-chevron {
+            position: absolute;
+            right: 0.6rem;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 14px;
+            height: 14px;
+            color: var(--text-secondary);
+            pointer-events: none;
+            transition: transform 0.2s;
+        }
+        .combobox.open .combobox-chevron { transform: translateY(-50%) rotate(180deg); }
+        .combobox-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            max-height: 240px;
+            overflow-y: auto;
+            background: var(--bg-secondary);
+            border: 1px solid var(--accent);
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .combobox.open .combobox-dropdown { display: block; }
+        .combobox-dropdown li {
+            padding: 0.45rem 0.8rem;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .combobox-dropdown li:hover,
+        .combobox-dropdown li.highlighted {
+            background: rgba(201, 168, 76, 0.15);
+            color: var(--accent);
+        }
+        .combobox-dropdown li .match { font-weight: 700; color: var(--accent); }
+        .combobox-dropdown::-webkit-scrollbar { width: 6px; }
+        .combobox-dropdown::-webkit-scrollbar-track { background: transparent; }
+        .combobox-dropdown::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <!-- Auth Gate -->
+    <div id="authGate" class="auth-gate">
+        <h2>Training Admin</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+            Enter the admin key to manage the framing knowledge base.
+        </p>
+        <input type="password" id="adminKeyInput" placeholder="Admin key..." />
+        <button class="btn btn-primary" onclick="authenticate()">Enter</button>
+        <p id="authError" class="hidden" style="color: var(--danger); margin-top: 1rem;"></p>
+    </div>
+
+    <!-- Main Admin UI (hidden until authenticated) -->
+    <div id="adminUI" class="hidden">
+        <div class="header">
+            <div>
+                <h1>AI.FrameVue Training Admin</h1>
+                <a href="/" class="back-link">Back to app</a>
+            </div>
+            <div class="stats">
+                <span>Rules: <span class="stat-value" id="statRules">0</span></span>
+                <span>Style Guides: <span class="stat-value" id="statGuides">0</span></span>
+                <span>Examples: <span class="stat-value" id="statExamples">0</span></span>
+                <span>Vendors: <span class="stat-value" id="statVendors">0</span></span>
+                <span>|</span>
+                <span>Catalog Mouldings: <span class="stat-value" id="statCatMouldings">0</span></span>
+                <span>Catalog Mats: <span class="stat-value" id="statCatMats">0</span></span>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('rules')">Framing Rules</button>
+                <button class="tab" onclick="showTab('guides')">Style Guides</button>
+                <button class="tab" onclick="showTab('examples')">Training Examples</button>
+                <button class="tab" onclick="showTab('catalog')">Vendor Catalog</button>
+            </div>
+
+            <!-- === FRAMING RULES === -->
+            <div id="rulesSection" class="section active">
+                <div class="add-form">
+                    <h3>Add New Rule</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Category</label>
+                            <select id="ruleCategory">
+                                <option value="mat-selection">Mat Selection</option>
+                                <option value="moulding-selection">Moulding Selection</option>
+                                <option value="moulding-width">Moulding Width</option>
+                                <option value="color-pairing">Color Pairing</option>
+                                <option value="double-mat-rules">Double Mat Rules</option>
+                                <option value="style-matching">Style Matching</option>
+                                <option value="conservation">Conservation</option>
+                                <option value="do-not-do">Do Not Do</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Confidence</label>
+                            <select id="ruleConfidence">
+                                <option value="high">High</option>
+                                <option value="medium">Medium</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Principle (the expert rule) <button type="button" class="mic-btn" onclick="toggleRecording('rulePrinciple')" id="mic-rulePrinciple" title="Dictate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button></label>
+                        <textarea id="rulePrinciple" placeholder="e.g., Never use bright white mats with warm watercolor paintings..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Example (one practical example) <button type="button" class="mic-btn" onclick="toggleRecording('ruleExample')" id="mic-ruleExample" title="Dictate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button></label>
+                        <input type="text" id="ruleExample" placeholder="e.g., Warm sunset painting -> use cream mat, not white" />
+                    </div>
+                    <div class="form-group">
+                        <label>Added By <button type="button" class="mic-btn" onclick="toggleRecording('ruleAddedBy')" id="mic-ruleAddedBy" title="Dictate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button></label>
+                        <input type="text" id="ruleAddedBy" placeholder="e.g., Jane Smith, CPF" />
+                    </div>
+                    <button class="btn btn-primary" onclick="addRule()">Add Rule</button>
+                </div>
+                <div id="rulesList"></div>
+            </div>
+
+            <!-- === STYLE GUIDES === -->
+            <div id="guidesSection" class="section">
+                <div class="add-form">
+                    <h3>Add New Style Guide</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Art Style (e.g., oil-painting-classical) <button type="button" class="mic-btn" onclick="toggleRecording('guideArtStyle')" id="mic-guideArtStyle" title="Dictate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button></label>
+                            <input type="text" id="guideArtStyle" placeholder="art-style-name" />
+                        </div>
+                        <div class="form-group">
+                            <label>Keywords (comma-separated) <button type="button" class="mic-btn" onclick="toggleRecording('guideKeywords')" id="mic-guideKeywords" title="Dictate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button></label>
+                            <input type="text" id="guideKeywords" placeholder="oil, classical, renaissance" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Preferred Mouldings (comma-separated) <button type="button" class="mic-btn" onclick="toggleRecording('guidePreferred')" id="mic-guidePreferred" title="Dictate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button></label>
+                        <input type="text" id="guidePreferred" placeholder="ornate gold, warm wood, antiqued finish" />
+                    </div>
+                    <div class="form-group">
+                        <label>Avoid Mouldings (comma-separated) <button type="button" class="mic-btn" onclick="toggleRecording('guideAvoid')" id="mic-guideAvoid" title="Dictate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button></label>
+                        <input type="text" id="guideAvoid" placeholder="thin modern metal, bright chrome" />
+                    </div>
+                    <div class="form-group">
+                        <label>Mat Guidance <button type="button" class="mic-btn" onclick="toggleRecording('guideMatGuidance')" id="mic-guideMatGuidance" title="Dictate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button></label>
+                        <textarea id="guideMatGuidance" placeholder="Describe ideal mat choices for this art style..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Width Guidance <button type="button" class="mic-btn" onclick="toggleRecording('guideWidthGuidance')" id="mic-guideWidthGuidance" title="Dictate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button></label>
+                        <input type="text" id="guideWidthGuidance" placeholder="e.g., Medium to wide — classical art needs presence" />
+                    </div>
+                    <div class="form-group">
+                        <label>Notes <button type="button" class="mic-btn" onclick="toggleRecording('guideNotes')" id="mic-guideNotes" title="Dictate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button></label>
+                        <textarea id="guideNotes" placeholder="Any additional expert notes..."></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="addStyleGuide()">Add Style Guide</button>
+                </div>
+                <div id="guidesList"></div>
+            </div>
+
+            <!-- === TRAINING EXAMPLES === -->
+            <div id="examplesSection" class="section">
+                <div class="add-form">
+                    <h3>Add Training Example</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Description <button type="button" class="mic-btn" onclick="toggleRecording('exDescription')" id="mic-exDescription" title="Dictate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button></label>
+                            <input type="text" id="exDescription" placeholder="e.g., Watercolor landscape with blues and greens" />
+                        </div>
+                        <div class="form-group">
+                            <label>Art Style <button type="button" class="mic-btn" onclick="toggleRecording('exArtStyle')" id="mic-exArtStyle" title="Dictate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button></label>
+                            <input type="text" id="exArtStyle" placeholder="e.g., watercolor" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Medium <button type="button" class="mic-btn" onclick="toggleRecording('exMedium')" id="mic-exMedium" title="Dictate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button></label>
+                            <input type="text" id="exMedium" placeholder="e.g., watercolor" />
+                        </div>
+                        <div class="form-group">
+                            <label>Subject Matter <button type="button" class="mic-btn" onclick="toggleRecording('exSubject')" id="mic-exSubject" title="Dictate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button></label>
+                            <input type="text" id="exSubject" placeholder="e.g., landscape" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Mood <button type="button" class="mic-btn" onclick="toggleRecording('exMood')" id="mic-exMood" title="Dictate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button></label>
+                            <input type="text" id="exMood" placeholder="e.g., serene" />
+                        </div>
+                        <div class="form-group">
+                            <label>Color Temperature</label>
+                            <select id="exColorTemp">
+                                <option value="warm">Warm</option>
+                                <option value="cool">Cool</option>
+                                <option value="mixed">Mixed</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Expert Moulding Choice <button type="button" class="mic-btn" onclick="toggleRecording('exMoulding')" id="mic-exMoulding" title="Dictate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button></label>
+                        <input type="text" id="exMoulding" placeholder="e.g., Natural maple, thin profile (1 inch)" />
+                    </div>
+                    <div class="form-group">
+                        <label>Expert Mat Choice <button type="button" class="mic-btn" onclick="toggleRecording('exMat')" id="mic-exMat" title="Dictate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button></label>
+                        <input type="text" id="exMat" placeholder="e.g., Single mat, warm white" />
+                    </div>
+                    <div class="form-group">
+                        <label>Reasoning (why these choices work) <button type="button" class="mic-btn" onclick="toggleRecording('exReasoning')" id="mic-exReasoning" title="Dictate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button></label>
+                        <textarea id="exReasoning" placeholder="Explain the expert reasoning behind these choices..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Common Mistakes (one per line) <button type="button" class="mic-btn" onclick="toggleRecording('exMistakes')" id="mic-exMistakes" title="Dictate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button></label>
+                        <textarea id="exMistakes" placeholder="Using bright white mat — kills warmth&#10;Heavy ornate frame — overwhelms watercolor"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Added By <button type="button" class="mic-btn" onclick="toggleRecording('exAddedBy')" id="mic-exAddedBy" title="Dictate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button></label>
+                        <input type="text" id="exAddedBy" placeholder="e.g., Mike Chen, Master Framer" />
+                    </div>
+                    <button class="btn btn-primary" onclick="addExample()">Add Example</button>
+                </div>
+                <div id="examplesList"></div>
+            </div>
+            <!-- === VENDOR CATALOG === -->
+            <div id="catalogSection" class="section">
+                <div class="add-form">
+                    <h3>Import Catalog from SQL Server</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.85rem;">
+                        Imports vendors, mouldings, and mats from LifeSaver SQL Server into the local SQLite database.
+                        This replaces all existing catalog data.
+                    </p>
+                    <div class="form-group" id="connStrGroup">
+                        <label>SQL Server Connection String</label>
+                        <div id="connStrSaved" class="hidden" style="display:none; align-items:center; gap:0.75rem; margin-bottom:0.5rem;">
+                            <span style="color:var(--success); font-size:0.85rem;" id="connStrDisplay">Saved connection configured</span>
+                            <button class="btn btn-small" style="background:var(--bg-secondary); color:var(--text-secondary); border:1px solid var(--border);" onclick="showConnStrField()">Change</button>
+                        </div>
+                        <input type="text" id="catalogConnStr" placeholder="Server=myserver;Database=LifeSaverVendor;User Id=user;Password=pass;TrustServerCertificate=True;" />
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>S3 Base URL</label>
+                            <input type="text" id="catalogS3Base" value="https://lifesaversoft.s3.amazonaws.com" />
+                        </div>
+                        <div class="form-group">
+                            <label>S3 Image Extension</label>
+                            <input type="text" id="catalogS3Ext" value=".jpg" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>S3 Moulding Image Path</label>
+                            <input type="text" id="catalogS3MouldingPath" value="Moulding Images" />
+                        </div>
+                        <div class="form-group">
+                            <label>S3 Mat Image Path</label>
+                            <input type="text" id="catalogS3MatPath" value="Mat Images" />
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" id="importCatalogBtn" onclick="importCatalog()">Import Catalog</button>
+                    <span id="importStatus" style="margin-left: 1rem; font-size: 0.85rem; color: var(--text-secondary);"></span>
+                </div>
+
+                <!-- Enrichment -->
+                <div class="add-form" style="margin-top: 1.5rem;">
+                    <h3>AI Color Enrichment</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.85rem;">
+                        Downloads each product image from S3 and uses AI vision to analyze colors, finish type, and temperature.
+                        ~$0.003 per image with GPT-4o-mini.
+                    </p>
+                    <div id="enrichProgress" style="margin-bottom: 1rem;">
+                        <div style="display:flex; gap:2rem; font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.5rem;">
+                            <span>Mouldings: <span class="stat-value" id="enrichMouldingsDone">0</span> / <span id="enrichMouldingsTotal">0</span></span>
+                            <span>Mats: <span class="stat-value" id="enrichMatsDone">0</span> / <span id="enrichMatsTotal">0</span></span>
+                        </div>
+                        <div style="background:var(--bg-secondary); border-radius:4px; height:8px; overflow:hidden;">
+                            <div id="enrichBar" style="background:var(--accent); height:100%; width:0%; transition:width 0.3s;"></div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Batch Size</label>
+                            <input type="number" id="enrichBatchSize" value="50" min="1" max="500" />
+                        </div>
+                        <div class="form-group">
+                            <label>Vendor Filter (optional)</label>
+                            <input type="text" id="enrichVendorFilter" placeholder="e.g., Larson Juhl" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Type</label>
+                            <select id="enrichType">
+                                <option value="both">Both</option>
+                                <option value="mouldings">Mouldings Only</option>
+                                <option value="mats">Mats Only</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="display:flex; align-items:flex-end;">
+                            <button class="btn btn-primary" id="enrichBtn" onclick="startEnrichment()">Start Enrichment</button>
+                            <span id="enrichStatus" style="margin-left:1rem; font-size:0.85rem; color:var(--text-secondary);"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Browse Catalog -->
+                <h3 style="color: var(--accent); margin: 1.5rem 0 1rem; font-family: 'Playfair Display', serif;">Browse Catalog</h3>
+
+                <div style="margin-bottom: 1rem;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Type</label>
+                            <select id="browseType" onchange="browseCatalog(1)">
+                                <option value="mouldings">Mouldings</option>
+                                <option value="mats">Mats</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Vendor</label>
+                            <input type="text" id="browseVendor" placeholder="e.g., Larson Juhl" />
+                        </div>
+                        <div class="form-group">
+                            <label>Color</label>
+                            <input type="text" id="browseColor" placeholder="e.g., Gold, Black" />
+                        </div>
+                        <div class="form-group">
+                            <label>Style / Material</label>
+                            <input type="text" id="browseStyle" placeholder="e.g., Traditional" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Finish Type</label>
+                            <input type="text" id="browseFinish" placeholder="e.g., distressed, glossy" />
+                        </div>
+                        <div class="form-group" style="display:flex; align-items:flex-end; gap:0.5rem;">
+                            <button class="btn btn-primary" onclick="browseCatalog(1)">Search</button>
+                            <button class="btn" style="background:var(--bg-secondary); color:var(--text-secondary); border:1px solid var(--border);" onclick="clearBrowse()">Clear</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="browseInfo" style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.75rem;"></div>
+                <div id="browseResults" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:1rem;"></div>
+                <div id="browsePagination" style="display:flex; justify-content:center; gap:0.5rem; margin-top:1.5rem;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        let adminKey = '';
+
+        // === Auth ===
+        async function authenticate() {
+            const key = document.getElementById('adminKeyInput').value;
+            try {
+                const res = await fetch('/Training/ValidateKey', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key })
+                });
+                if (res.ok) {
+                    adminKey = key;
+                    document.getElementById('authGate').classList.add('hidden');
+                    document.getElementById('adminUI').classList.remove('hidden');
+                    loadAll();
+                } else {
+                    document.getElementById('authError').textContent = 'Invalid admin key.';
+                    document.getElementById('authError').classList.remove('hidden');
+                }
+            } catch {
+                document.getElementById('authError').textContent = 'Connection error.';
+                document.getElementById('authError').classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('adminKeyInput').addEventListener('keypress', e => {
+            if (e.key === 'Enter') authenticate();
+        });
+
+        // === Tabs ===
+        function showTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelector(`[onclick="showTab('${tab}')"]`).classList.add('active');
+            document.getElementById(`${tab}Section`).classList.add('active');
+        }
+
+        // === Toast ===
+        function showToast(message) {
+            const t = document.getElementById('toast');
+            t.textContent = message;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        // === Load All ===
+        async function loadAll() {
+            loadStats();
+            loadCatalogStats();
+            checkCatalogConnection();
+            loadEnrichmentStatus();
+            loadRules();
+            loadStyleGuides();
+            loadExamples();
+            initComboboxes();
+        }
+
+        async function loadStats() {
+            try {
+                const res = await fetch('/Training/Stats');
+                const data = await res.json();
+                document.getElementById('statRules').textContent = data.rules;
+                document.getElementById('statGuides').textContent = data.styleGuides;
+                document.getElementById('statExamples').textContent = data.trainingExamples;
+                document.getElementById('statVendors').textContent = data.vendors;
+            } catch {}
+        }
+
+        // === Rules ===
+        async function loadRules() {
+            try {
+                const res = await fetch('/Training/GetRules');
+                const rules = await res.json();
+                const container = document.getElementById('rulesList');
+                container.innerHTML = rules.map(r => `
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>${r.principle.substring(0, 80)}${r.principle.length > 80 ? '...' : ''}</h3>
+                            <div class="card-actions">
+                                <span class="badge">${r.category}</span>
+                                <button class="btn btn-danger btn-small" onclick="deleteRule('${r.id}')">Delete</button>
+                            </div>
+                        </div>
+                        <p>${r.principle}</p>
+                        ${r.examples && r.examples.length > 0 ? `<ul class="examples-list">${r.examples.map(e => `<li>${e}</li>`).join('')}</ul>` : ''}
+                        <p style="font-size:0.8rem; margin-top:0.5rem;">Confidence: ${r.confidence} | By: ${r.addedBy || 'Unknown'}</p>
+                    </div>
+                `).join('');
+            } catch {}
+        }
+
+        async function addRule() {
+            const rule = {
+                category: document.getElementById('ruleCategory').value,
+                principle: document.getElementById('rulePrinciple').value,
+                examples: document.getElementById('ruleExample').value ? [document.getElementById('ruleExample').value] : [],
+                addedBy: document.getElementById('ruleAddedBy').value,
+                confidence: document.getElementById('ruleConfidence').value
+            };
+            if (!rule.principle) return;
+
+            try {
+                const res = await fetch('/Training/AddRule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ adminKey, rule })
+                });
+                if (res.ok) {
+                    showToast('Rule added successfully');
+                    document.getElementById('rulePrinciple').value = '';
+                    document.getElementById('ruleExample').value = '';
+                    document.getElementById('ruleAddedBy').value = '';
+                    loadRules();
+                    loadStats();
+                }
+            } catch {}
+        }
+
+        async function deleteRule(id) {
+            if (!confirm('Delete this rule?')) return;
+            try {
+                const res = await fetch('/Training/DeleteRule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ adminKey, id })
+                });
+                if (res.ok) {
+                    showToast('Rule deleted');
+                    loadRules();
+                    loadStats();
+                }
+            } catch {}
+        }
+
+        // === Style Guides ===
+        async function loadStyleGuides() {
+            try {
+                const res = await fetch('/Training/GetStyleGuides');
+                const guides = await res.json();
+                const container = document.getElementById('guidesList');
+                container.innerHTML = guides.map(g => `
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>${g.artStyle}</h3>
+                            <div class="card-actions">
+                                <button class="btn btn-danger btn-small" onclick="deleteStyleGuide('${g.artStyle}')">Delete</button>
+                            </div>
+                        </div>
+                        <p><strong>Preferred:</strong> ${(g.preferredMouldings || []).join(', ')}</p>
+                        <p><strong>Avoid:</strong> ${(g.avoidMouldings || []).join(', ')}</p>
+                        <p><strong>Mat:</strong> ${g.matGuidance}</p>
+                        <p><strong>Width:</strong> ${g.widthGuidance}</p>
+                        ${g.notes ? `<p><strong>Notes:</strong> ${g.notes}</p>` : ''}
+                    </div>
+                `).join('');
+            } catch {}
+        }
+
+        async function addStyleGuide() {
+            const guide = {
+                artStyle: document.getElementById('guideArtStyle').value,
+                keywords: document.getElementById('guideKeywords').value.split(',').map(s => s.trim()).filter(Boolean),
+                preferredMouldings: document.getElementById('guidePreferred').value.split(',').map(s => s.trim()).filter(Boolean),
+                avoidMouldings: document.getElementById('guideAvoid').value.split(',').map(s => s.trim()).filter(Boolean),
+                matGuidance: document.getElementById('guideMatGuidance').value,
+                widthGuidance: document.getElementById('guideWidthGuidance').value,
+                notes: document.getElementById('guideNotes').value
+            };
+            if (!guide.artStyle) return;
+
+            try {
+                const res = await fetch('/Training/AddStyleGuide', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ adminKey, guide })
+                });
+                if (res.ok) {
+                    showToast('Style guide added');
+                    document.getElementById('guideArtStyle').value = '';
+                    document.getElementById('guideKeywords').value = '';
+                    document.getElementById('guidePreferred').value = '';
+                    document.getElementById('guideAvoid').value = '';
+                    document.getElementById('guideMatGuidance').value = '';
+                    document.getElementById('guideWidthGuidance').value = '';
+                    document.getElementById('guideNotes').value = '';
+                    loadStyleGuides();
+                    loadStats();
+                }
+            } catch {}
+        }
+
+        async function deleteStyleGuide(artStyle) {
+            if (!confirm('Delete this style guide?')) return;
+            try {
+                const res = await fetch('/Training/DeleteStyleGuide', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ adminKey, id: artStyle })
+                });
+                if (res.ok) {
+                    showToast('Style guide deleted');
+                    loadStyleGuides();
+                    loadStats();
+                }
+            } catch {}
+        }
+
+        // === Training Examples ===
+        async function loadExamples() {
+            try {
+                const res = await fetch('/Training/GetExamples');
+                const examples = await res.json();
+                const container = document.getElementById('examplesList');
+                container.innerHTML = examples.map(ex => `
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>${ex.description}</h3>
+                            <div class="card-actions">
+                                <span class="badge">${ex.artStyle}</span>
+                                <button class="btn btn-danger btn-small" onclick="deleteExample('${ex.id}')">Delete</button>
+                            </div>
+                        </div>
+                        <p><strong>Medium:</strong> ${ex.medium} | <strong>Mood:</strong> ${ex.mood} | <strong>Temp:</strong> ${ex.colorTemperature}</p>
+                        <p><strong>Expert Moulding:</strong> ${ex.expertChoice?.moulding || 'N/A'}</p>
+                        <p><strong>Expert Mat:</strong> ${ex.expertChoice?.mat || 'N/A'}</p>
+                        <p><strong>Reasoning:</strong> ${ex.expertChoice?.reasoning || 'N/A'}</p>
+                        ${ex.commonMistakes && ex.commonMistakes.length > 0 ? `<p><strong>Common Mistakes:</strong></p><ul class="examples-list">${ex.commonMistakes.map(m => `<li>${m}</li>`).join('')}</ul>` : ''}
+                        <p style="font-size:0.8rem; margin-top:0.5rem;">By: ${ex.addedBy || 'Unknown'}</p>
+                    </div>
+                `).join('');
+            } catch {}
+        }
+
+        async function addExample() {
+            const example = {
+                description: document.getElementById('exDescription').value,
+                artStyle: document.getElementById('exArtStyle').value,
+                medium: document.getElementById('exMedium').value,
+                subjectMatter: document.getElementById('exSubject').value,
+                mood: document.getElementById('exMood').value,
+                colorTemperature: document.getElementById('exColorTemp').value,
+                dominantColors: [],
+                expertChoice: {
+                    moulding: document.getElementById('exMoulding').value,
+                    mat: document.getElementById('exMat').value,
+                    reasoning: document.getElementById('exReasoning').value,
+                    mouldingColor: '',
+                    mouldingWidth: '',
+                    matColor: '',
+                    matStyle: ''
+                },
+                commonMistakes: document.getElementById('exMistakes').value.split('\n').map(s => s.trim()).filter(Boolean),
+                addedBy: document.getElementById('exAddedBy').value
+            };
+            if (!example.description) return;
+
+            try {
+                const res = await fetch('/Training/AddExample', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ adminKey, example })
+                });
+                if (res.ok) {
+                    showToast('Training example added');
+                    ['exDescription','exArtStyle','exMedium','exSubject','exMood',
+                     'exMoulding','exMat','exReasoning','exMistakes','exAddedBy']
+                        .forEach(id => document.getElementById(id).value = '');
+                    loadExamples();
+                    loadStats();
+                }
+            } catch {}
+        }
+
+        async function deleteExample(id) {
+            if (!confirm('Delete this training example?')) return;
+            try {
+                const res = await fetch('/Training/DeleteExample', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ adminKey, id })
+                });
+                if (res.ok) {
+                    showToast('Example deleted');
+                    loadExamples();
+                    loadStats();
+                }
+            } catch {}
+        }
+
+        // === Catalog ===
+        async function checkCatalogConnection() {
+            try {
+                const res = await fetch('/Training/CatalogConnectionStatus');
+                const data = await res.json();
+                if (data.configured) {
+                    document.getElementById('connStrSaved').style.display = 'flex';
+                    document.getElementById('connStrDisplay').textContent = data.display || 'Saved connection configured';
+                    document.getElementById('catalogConnStr').style.display = 'none';
+                }
+            } catch {}
+        }
+
+        function showConnStrField() {
+            document.getElementById('connStrSaved').style.display = 'none';
+            document.getElementById('catalogConnStr').style.display = '';
+            document.getElementById('catalogConnStr').focus();
+        }
+
+        async function loadCatalogStats() {
+            try {
+                const res = await fetch('/Training/CatalogStats');
+                const data = await res.json();
+                document.getElementById('statCatMouldings').textContent = data.mouldings;
+                document.getElementById('statCatMats').textContent = data.mats;
+            } catch {}
+        }
+
+        async function importCatalog() {
+            const connStr = document.getElementById('catalogConnStr').value;
+            const btn = document.getElementById('importCatalogBtn');
+            const status = document.getElementById('importStatus');
+            btn.disabled = true;
+            btn.textContent = 'Importing...';
+            status.textContent = 'This may take a few minutes...';
+            status.style.color = 'var(--text-secondary)';
+
+            try {
+                const res = await fetch('/Training/ImportCatalog', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        adminKey,
+                        sqlServerConnection: connStr,
+                        s3BaseUrl: document.getElementById('catalogS3Base').value,
+                        s3MouldingPath: document.getElementById('catalogS3MouldingPath').value,
+                        s3MatPath: document.getElementById('catalogS3MatPath').value,
+                        s3ImageExtension: document.getElementById('catalogS3Ext').value
+                    })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showToast(`Imported ${result.vendorsImported} vendors, ${result.mouldingsImported} mouldings, ${result.matsImported} mats`);
+                    status.textContent = `Last import: ${result.vendorsImported}V / ${result.mouldingsImported}M / ${result.matsImported} mats`;
+                    loadCatalogStats();
+                    loadEnrichmentStatus();
+                    invalidateFilterOptionsCache();
+                    updateBrowseComboboxOptions();
+                } else {
+                    status.textContent = `Error: ${result.error}`;
+                    status.style.color = 'var(--danger)';
+                }
+            } catch (e) {
+                status.textContent = `Connection error: ${e.message}`;
+                status.style.color = 'var(--danger)';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Import Catalog';
+            }
+        }
+
+        // === Enrichment ===
+        async function loadEnrichmentStatus() {
+            try {
+                const res = await fetch('/Training/EnrichmentStatus');
+                const s = await res.json();
+                document.getElementById('enrichMouldingsDone').textContent = s.analyzedMouldings;
+                document.getElementById('enrichMouldingsTotal').textContent = s.totalMouldings;
+                document.getElementById('enrichMatsDone').textContent = s.analyzedMats;
+                document.getElementById('enrichMatsTotal').textContent = s.totalMats;
+                const total = s.totalMouldings + s.totalMats;
+                const done = s.analyzedMouldings + s.analyzedMats;
+                document.getElementById('enrichBar').style.width = total > 0 ? ((done / total) * 100) + '%' : '0%';
+            } catch {}
+        }
+
+        async function startEnrichment() {
+            const btn = document.getElementById('enrichBtn');
+            const status = document.getElementById('enrichStatus');
+            btn.disabled = true;
+            btn.textContent = 'Enriching...';
+            status.textContent = 'Analyzing images with AI...';
+
+            try {
+                const res = await fetch('/Training/EnrichCatalog', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        adminKey,
+                        batchSize: parseInt(document.getElementById('enrichBatchSize').value) || 50,
+                        vendorFilter: document.getElementById('enrichVendorFilter').value || null,
+                        type: document.getElementById('enrichType').value
+                    })
+                });
+                const result = await res.json();
+                const mR = result.mouldings;
+                const matR = result.mats;
+                const analyzed = (mR?.analyzed || 0) + (matR?.analyzed || 0);
+                const skipped = (mR?.skipped || 0) + (matR?.skipped || 0);
+                const remaining = (mR?.remaining || 0) + (matR?.remaining || 0);
+                showToast(`Enriched ${analyzed} products (${skipped} skipped, ${remaining} remaining)`);
+                status.textContent = `Done: ${analyzed} analyzed, ${remaining} remaining`;
+                loadEnrichmentStatus();
+                loadCatalogStats();
+            } catch (e) {
+                status.textContent = `Error: ${e.message}`;
+                status.style.color = 'var(--danger)';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Start Enrichment';
+            }
+        }
+
+        // === Browse Catalog ===
+        let currentBrowsePage = 1;
+
+        function clearBrowse() {
+            ['browseVendor','browseColor','browseStyle','browseFinish'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('browseResults').innerHTML = '';
+            document.getElementById('browsePagination').innerHTML = '';
+            document.getElementById('browseInfo').textContent = '';
+        }
+
+        async function browseCatalog(page) {
+            currentBrowsePage = page || 1;
+            const type = document.getElementById('browseType').value;
+            const params = new URLSearchParams();
+            const vendor = document.getElementById('browseVendor').value;
+            const color = document.getElementById('browseColor').value;
+            const style = document.getElementById('browseStyle').value;
+            const finish = document.getElementById('browseFinish').value;
+
+            if (vendor) params.set('vendor', vendor);
+            if (color) params.set('color', color);
+            if (finish) params.set('finish', finish);
+            if (type === 'mouldings' && style) params.set('style', style);
+            if (type === 'mats' && style) params.set('material', style);
+            params.set('page', currentBrowsePage);
+            params.set('pageSize', '24');
+
+            const endpoint = type === 'mouldings' ? 'BrowseMouldings' : 'BrowseMats';
+
+            try {
+                const res = await fetch(`/Training/${endpoint}?${params}`);
+                const data = await res.json();
+
+                document.getElementById('browseInfo').textContent =
+                    `Showing ${(data.page - 1) * data.pageSize + 1}–${Math.min(data.page * data.pageSize, data.total)} of ${data.total} ${type}`;
+
+                const container = document.getElementById('browseResults');
+                if (data.items.length === 0) {
+                    container.innerHTML = '<p style="color:var(--text-secondary); grid-column:1/-1;">No results found.</p>';
+                    document.getElementById('browsePagination').innerHTML = '';
+                    return;
+                }
+
+                container.innerHTML = data.items.map(item => {
+                    const colorSwatch = item.primaryColorHex
+                        ? `<span class="color-swatch" style="background:${item.primaryColorHex}"></span>${item.primaryColorName || item.primaryColorHex}`
+                        : item.colorCategory || 'Unknown';
+                    const secondarySwatch = item.secondaryColorHex
+                        ? ` / <span class="color-swatch" style="background:${item.secondaryColorHex}"></span>${item.secondaryColorName || ''}`
+                        : '';
+                    const finishInfo = item.finishType ? ` | ${item.finishType}` : '';
+                    const tempInfo = item.colorTemperature ? ` | ${item.colorTemperature}` : '';
+
+                    const details = type === 'mouldings'
+                        ? `${item.style || ''} | ${item.profile || ''} | ${item.mouldingWidth}"`
+                        : `${item.matClass || ''} | ${item.material || ''}`;
+
+                    return `
+                        <div class="product-card">
+                            <img src="${item.imageUrl || ''}" alt="${item.itemName}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 160%22><rect fill=%22%23141422%22 width=%22200%22 height=%22160%22/><text fill=%22%238888a0%22 x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 font-size=%2212%22>No Image</text></svg>'" />
+                            <div class="card-body">
+                                <h4>${item.itemName}</h4>
+                                <p><span class="badge" style="margin-right:4px;">${item.vendorName}</span></p>
+                                <p>${colorSwatch}${secondarySwatch}${finishInfo}${tempInfo}</p>
+                                <p>${details}</p>
+                                ${item.imageAnalyzedAt ? '<p style="color:var(--success); font-size:0.7rem;">AI Analyzed</p>' : ''}
+                            </div>
+                        </div>`;
+                }).join('');
+
+                // Pagination
+                const pagination = document.getElementById('browsePagination');
+                if (data.totalPages > 1) {
+                    let btns = '';
+                    if (data.page > 1) btns += `<button class="page-btn" onclick="browseCatalog(${data.page - 1})">Prev</button>`;
+                    const start = Math.max(1, data.page - 3);
+                    const end = Math.min(data.totalPages, data.page + 3);
+                    for (let i = start; i <= end; i++) {
+                        btns += `<button class="page-btn ${i === data.page ? 'active' : ''}" onclick="browseCatalog(${i})">${i}</button>`;
+                    }
+                    if (data.page < data.totalPages) btns += `<button class="page-btn" onclick="browseCatalog(${data.page + 1})">Next</button>`;
+                    pagination.innerHTML = btns;
+                } else {
+                    pagination.innerHTML = '';
+                }
+            } catch (e) {
+                document.getElementById('browseResults').innerHTML = `<p style="color:var(--danger);">Error: ${e.message}</p>`;
+            }
+        }
+        // === Voice Dictation ===
+        let recognition = null;
+        let activeFieldId = null;
+
+        function initVoiceInput() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                // Hide all mic buttons — browser doesn't support speech
+                document.body.classList.add('no-speech-api');
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = function(event) {
+                if (!activeFieldId) return;
+                const field = document.getElementById(activeFieldId);
+                if (!field) return;
+
+                let finalTranscript = '';
+                let interimTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript;
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+
+                if (finalTranscript) {
+                    const isTextarea = field.tagName === 'TEXTAREA';
+                    if (isTextarea && field.value.trim()) {
+                        // Append to existing content for textareas
+                        field.value = field.value.trimEnd() + ' ' + finalTranscript;
+                    } else {
+                        field.value = finalTranscript;
+                    }
+                }
+            };
+
+            recognition.onend = function() {
+                if (activeFieldId) {
+                    const btn = document.getElementById('mic-' + activeFieldId);
+                    if (btn) btn.classList.remove('recording');
+                }
+                activeFieldId = null;
+            };
+
+            recognition.onerror = function(event) {
+                if (event.error === 'not-allowed') {
+                    showToast('Microphone access denied. Please allow microphone in browser settings.');
+                } else if (event.error !== 'aborted' && event.error !== 'no-speech') {
+                    showToast('Voice input error: ' + event.error);
+                }
+                if (activeFieldId) {
+                    const btn = document.getElementById('mic-' + activeFieldId);
+                    if (btn) btn.classList.remove('recording');
+                }
+                activeFieldId = null;
+            };
+        }
+
+        function toggleRecording(fieldId) {
+            if (!recognition) return;
+
+            // If already recording this field, stop
+            if (activeFieldId === fieldId) {
+                recognition.stop();
+                return;
+            }
+
+            // If recording a different field, stop that first
+            if (activeFieldId) {
+                recognition.stop();
+                const prevBtn = document.getElementById('mic-' + activeFieldId);
+                if (prevBtn) prevBtn.classList.remove('recording');
+            }
+
+            // Start recording for the new field
+            activeFieldId = fieldId;
+            const btn = document.getElementById('mic-' + fieldId);
+            if (btn) btn.classList.add('recording');
+
+            try {
+                recognition.start();
+            } catch (e) {
+                // Already started — ignore
+            }
+        }
+
+        // === Combobox Class ===
+        class Combobox {
+            constructor(inputId, options) {
+                this.input = document.getElementById(inputId);
+                if (!this.input) return;
+                this.options = options || [];
+                this.filtered = [];
+                this.highlightIdx = -1;
+
+                // Wrap input in .combobox container
+                const wrapper = document.createElement('div');
+                wrapper.className = 'combobox';
+                this.input.parentNode.insertBefore(wrapper, this.input);
+                wrapper.appendChild(this.input);
+
+                // Chevron SVG
+                const chevron = document.createElement('span');
+                chevron.className = 'combobox-chevron';
+                chevron.innerHTML = '<svg viewBox="0 0 14 14" fill="none" width="14" height="14"><path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+                wrapper.appendChild(chevron);
+
+                // Dropdown list
+                this.dropdown = document.createElement('ul');
+                this.dropdown.className = 'combobox-dropdown';
+                this.dropdown.setAttribute('role', 'listbox');
+                wrapper.appendChild(this.dropdown);
+
+                this.input.setAttribute('role', 'combobox');
+                this.input.setAttribute('aria-expanded', 'false');
+                this.input.setAttribute('aria-autocomplete', 'list');
+                this.input.setAttribute('autocomplete', 'off');
+                this.wrapper = wrapper;
+
+                this.input.addEventListener('input', () => this.onInput());
+                this.input.addEventListener('focus', () => this.open());
+                this.input.addEventListener('keydown', (e) => this.onKeyDown(e));
+                document.addEventListener('click', (e) => {
+                    if (!wrapper.contains(e.target)) this.close();
+                });
+            }
+
+            setOptions(options) {
+                this.options = options || [];
+                if (this.wrapper.classList.contains('open')) this.onInput();
+            }
+
+            onInput() {
+                const val = this.input.value.toLowerCase();
+                if (!val) {
+                    this.filtered = this.options.slice(0, 50);
+                } else {
+                    const startsWith = this.options.filter(o => o.toLowerCase().startsWith(val));
+                    const contains = this.options.filter(o => !o.toLowerCase().startsWith(val) && o.toLowerCase().includes(val));
+                    this.filtered = startsWith.concat(contains).slice(0, 50);
+                }
+                this.highlightIdx = -1;
+                this.render();
+                this.open();
+            }
+
+            render() {
+                const val = this.input.value.toLowerCase();
+                this.dropdown.innerHTML = this.filtered.map((opt, i) => {
+                    const cls = i === this.highlightIdx ? ' class="highlighted"' : '';
+                    const display = val ? this.highlightMatch(opt, val) : this.esc(opt);
+                    return `<li${cls} role="option" data-index="${i}">${display}</li>`;
+                }).join('');
+
+                this.dropdown.querySelectorAll('li').forEach(li => {
+                    li.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        this.select(parseInt(li.dataset.index));
+                    });
+                });
+            }
+
+            highlightMatch(text, query) {
+                const idx = text.toLowerCase().indexOf(query);
+                if (idx < 0) return this.esc(text);
+                return this.esc(text.substring(0, idx)) +
+                    '<span class="match">' + this.esc(text.substring(idx, idx + query.length)) + '</span>' +
+                    this.esc(text.substring(idx + query.length));
+            }
+
+            esc(str) {
+                const d = document.createElement('div');
+                d.textContent = str;
+                return d.innerHTML;
+            }
+
+            select(idx) {
+                if (idx >= 0 && idx < this.filtered.length) {
+                    this.input.value = this.filtered[idx];
+                    this.input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                this.close();
+            }
+
+            open() {
+                if (!this.filtered.length && !this.input.value) {
+                    this.filtered = this.options.slice(0, 50);
+                    this.render();
+                }
+                if (!this.filtered.length) return;
+                this.wrapper.classList.add('open');
+                this.input.setAttribute('aria-expanded', 'true');
+            }
+
+            close() {
+                this.wrapper.classList.remove('open');
+                this.input.setAttribute('aria-expanded', 'false');
+                this.highlightIdx = -1;
+            }
+
+            onKeyDown(e) {
+                if (!this.wrapper.classList.contains('open')) {
+                    if (e.key === 'ArrowDown') { this.open(); e.preventDefault(); }
+                    return;
+                }
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    this.highlightIdx = Math.min(this.highlightIdx + 1, this.filtered.length - 1);
+                    this.render();
+                    this.scrollToHighlighted();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    this.highlightIdx = Math.max(this.highlightIdx - 1, 0);
+                    this.render();
+                    this.scrollToHighlighted();
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (this.highlightIdx >= 0) this.select(this.highlightIdx);
+                    else this.close();
+                } else if (e.key === 'Escape') {
+                    this.close();
+                }
+            }
+
+            scrollToHighlighted() {
+                const el = this.dropdown.querySelector('.highlighted');
+                if (el) el.scrollIntoView({ block: 'nearest' });
+            }
+        }
+
+        // === Combobox Initialization ===
+        const comboboxInstances = {};
+        const filterOptionsCache = {};
+
+        async function initComboboxes() {
+            const type = document.getElementById('browseType')?.value || 'mouldings';
+            const options = await fetchFilterOptions(type);
+            if (!options) return;
+
+            comboboxInstances.browseVendor = new Combobox('browseVendor', options.vendors);
+            comboboxInstances.browseColor = new Combobox('browseColor', options.colors);
+            comboboxInstances.browseStyle = new Combobox('browseStyle', options.styles.length ? options.styles : options.materials);
+            comboboxInstances.browseFinish = new Combobox('browseFinish', options.finishes);
+
+            // Enrichment vendor filter uses 'all' type
+            const allOptions = await fetchFilterOptions('all');
+            if (allOptions) {
+                comboboxInstances.enrichVendorFilter = new Combobox('enrichVendorFilter', allOptions.vendors);
+            }
+        }
+
+        async function fetchFilterOptions(type) {
+            if (filterOptionsCache[type]) return filterOptionsCache[type];
+            try {
+                const res = await fetch(`/Training/CatalogFilterOptions?type=${type}`);
+                if (!res.ok) return null;
+                const data = await res.json();
+                filterOptionsCache[type] = data;
+                return data;
+            } catch (e) {
+                console.warn('Failed to fetch filter options:', e);
+                return null;
+            }
+        }
+
+        async function updateBrowseComboboxOptions() {
+            const type = document.getElementById('browseType')?.value || 'mouldings';
+            const options = await fetchFilterOptions(type);
+            if (!options) return;
+
+            if (comboboxInstances.browseVendor) comboboxInstances.browseVendor.setOptions(options.vendors);
+            if (comboboxInstances.browseColor) comboboxInstances.browseColor.setOptions(options.colors);
+            if (comboboxInstances.browseStyle) comboboxInstances.browseStyle.setOptions(options.styles.length ? options.styles : options.materials);
+            if (comboboxInstances.browseFinish) comboboxInstances.browseFinish.setOptions(options.finishes);
+
+            // Update label for Style/Material
+            const styleLabel = document.querySelector('#browseStyle')?.closest('.form-group')?.querySelector('label');
+            if (styleLabel) {
+                styleLabel.textContent = type === 'mats' ? 'Material' : 'Style / Material';
+            }
+        }
+
+        function invalidateFilterOptionsCache() {
+            Object.keys(filterOptionsCache).forEach(k => delete filterOptionsCache[k]);
+        }
+
+        // Hook: browseType change triggers combobox option update
+        document.getElementById('browseType')?.addEventListener('change', updateBrowseComboboxOptions);
+
+        // Initialize voice input on page load
+        initVoiceInput();
+    </script>
+</body>
+</html>
