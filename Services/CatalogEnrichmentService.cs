@@ -227,16 +227,20 @@ public class CatalogEnrichmentService
         {
             try
             {
-                var imageBytes = await DownloadImageAsync(item.ImageUrl!);
-                if (imageBytes == null)
-                {
-                    result.Skipped++;
-                    _logger.LogWarning("Skipped art print {Id} ({Title}) — image download failed", item.Id, item.Title);
-                    item.ImageAnalyzedAt = DateTime.UtcNow;
-                    continue;
-                }
+                ArtPrintAnalysis? analysis = null;
 
-                var analysis = await AnalyzeArtPrintAsync(imageBytes);
+                // Try image-based analysis first
+                var imageBytes = await DownloadImageAsync(item.ImageUrl!);
+                if (imageBytes != null)
+                {
+                    analysis = await AnalyzeArtPrintAsync(imageBytes);
+                }
+                else
+                {
+                    // Fallback: metadata-based enrichment (when S3 images aren't accessible)
+                    _logger.LogInformation("Using metadata-based enrichment for art print {Id} ({Title})", item.Id, item.Title);
+                    analysis = await EnrichArtPrintFromMetadataAsync(item);
+                }
                 if (analysis != null)
                 {
                     item.PrimaryColorHex = analysis.PrimaryColorHex;
@@ -321,6 +325,68 @@ public class CatalogEnrichmentService
         {
             _logger.LogError("OpenAI vision error for art print: {Status} - {Body}", response.StatusCode,
                 responseBody.Length > 300 ? responseBody[..300] : responseBody);
+            return null;
+        }
+
+        return ParseArtPrintAnalysis(responseBody);
+    }
+
+    /// <summary>
+    /// Fallback enrichment when images aren't accessible — uses GPT to infer
+    /// colors, mood, and description from the print's existing metadata.
+    /// </summary>
+    private async Task<ArtPrintAnalysis?> EnrichArtPrintFromMetadataAsync(CatalogArtPrint item)
+    {
+        if (string.IsNullOrEmpty(_apiKey))
+        {
+            _logger.LogError("OpenAI API key not configured — cannot enrich art prints");
+            return null;
+        }
+
+        var prompt = $"Based on the following art print metadata, infer the likely colors, mood, and style.\n\n" +
+            $"Title: {item.Title}\n" +
+            $"Artist: {item.Artist}\n" +
+            $"Genre: {item.Genre}\n" +
+            $"Style: {item.Style}\n" +
+            $"Medium: {item.Medium}\n" +
+            $"Category: {item.Category}\n" +
+            $"Subject: {item.SubjectMatter}\n\n" +
+            "Infer the most likely colors, mood, and feel based on the title, subject, genre, and medium.\n" +
+            "Respond with ONLY this JSON (no other text):\n" +
+            "{\"primaryColorHex\":\"#...\",\"primaryColorName\":\"...\",\"secondaryColorHex\":\"#...\",\"secondaryColorName\":\"...\"," +
+            "\"tertiaryColorHex\":\"#...\" or null,\"tertiaryColorName\":\"...\" or null," +
+            "\"colorTemperature\":\"...\",\"mood\":\"...\",\"style\":\"...\",\"subjectTags\":\"...\",\"description\":\"...\"}";
+
+        var requestBody = new
+        {
+            model = _analysisModel,
+            input = new object[]
+            {
+                new
+                {
+                    role = "user",
+                    content = new object[]
+                    {
+                        new { type = "input_text", text = prompt }
+                    }
+                }
+            }
+        };
+
+        var client = _httpClientFactory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _apiKey);
+
+        var json = JsonSerializer.Serialize(requestBody);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync("https://api.openai.com/v1/responses", content);
+        var responseBody = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError("OpenAI metadata enrichment error for art print {Id}: {Status} - {Body}",
+                item.Id, response.StatusCode, responseBody.Length > 300 ? responseBody[..300] : responseBody);
             return null;
         }
 
