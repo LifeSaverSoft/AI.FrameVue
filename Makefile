@@ -19,10 +19,7 @@ deploy/prod: build/release sync/prod recyclepool
 deploy/dev: build/dev sync/dev
 
 recyclepool:
-	ssh rjohnson@lifesaversoft@lifesav-web03 -- "\windows\system32\inetsrv\appcmd.exe recycle apppool /apppool.name:FrameVue_AI && exit"
-
-restartsite:
-	ssh rjohnson@lifesaversoft@lifesav-web03 -- "\windows\system32\inetsrv\appcmd.exe stop site /site.name:AI.FrameVue.com && \windows\system32\inetsrv\appcmd.exe start site /site.name:AI.FrameVue.com && exit"
+	touch //volumes/Websites/FrameVue_AI/web.config
 
 clean:
 	rm -r ./obj

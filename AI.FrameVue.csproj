@@ -16,4 +16,11 @@
     <Content Update="KnowledgeBase\**\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="AI.FrameVue.Tests\**" />
+    <Content Remove="AI.FrameVue.Tests\**" />
+    <EmbeddedResource Remove="AI.FrameVue.Tests\**" />
+    <None Remove="AI.FrameVue.Tests\**" />
+  </ItemGroup>
+
 </Project>
