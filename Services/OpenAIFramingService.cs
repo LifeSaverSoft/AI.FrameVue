@@ -27,7 +27,7 @@ public class OpenAIFramingService
         _apiKey = configuration["OpenAI:ApiKey"]
             ?? throw new InvalidOperationException("OpenAI:ApiKey is not configured in appsettings.json");
         _analysisModel = configuration["OpenAI:AnalysisModel"] ?? "gpt-4o-mini";
-        _generationModel = configuration["OpenAI:GenerationModel"] ?? "gpt-image-1";
+        _generationModel = configuration["OpenAI:GenerationModel"] ?? "gpt-4o";
         _mockupQuality = configuration["OpenAI:MockupQuality"] ?? "high";
         _previewQuality = configuration["OpenAI:PreviewQuality"] ?? "medium";
         _mockupSize = configuration["OpenAI:MockupSize"] ?? "1536x1024";

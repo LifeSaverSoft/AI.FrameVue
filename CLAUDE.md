@@ -5,7 +5,7 @@
 - **Backend**: ASP.NET Core 8.0, C# 12, .NET 8
 - **Frontend**: Vanilla JavaScript (IIFE pattern), HTML5/CSS3 — NOT Vue.js despite the name
 - **Database**: SQLite (EF Core 8.0 with `EnsureCreated()` — no migrations)
-- **AI**: OpenAI API — `gpt-4o-mini` (text analysis), `gpt-image-1` (image generation)
+- **AI**: OpenAI API — `gpt-4o-mini` (text analysis), `gpt-4o` + `image_generation` tool (image generation via Responses API)
 - **Hosting**: IIS on Windows Server, deployed via rsync over SMB
 - **Source Control**: Git + GitHub
 - **Testing**: xUnit + WebApplicationFactory + MockOpenAIHandler (64 tests)
@@ -36,7 +36,7 @@
 - Weighted art print scoring: color harmony (4x), mood (3x), style (3x), genre (2x), color temperature (2x), orientation (1x)
 
 ### OpenAI API
-- Models: `gpt-4o-mini` (analysis), `gpt-image-1` (generation)
+- Models: `gpt-4o-mini` (analysis), `gpt-4o` with `image_generation` tool (generation — `gpt-image-1` no longer works as standalone model on Responses API)
 - All calls go through `v1/responses` endpoint (not chat completions)
 - Mockups: 1536x1024 high quality; Previews: 1536x1024 medium quality
 
