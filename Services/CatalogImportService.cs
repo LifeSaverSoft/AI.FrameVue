@@ -102,6 +102,64 @@ public class CatalogImportService
     }
 
     /// <summary>
+    /// Import art prints from SQL Server into local SQLite.
+    /// </summary>
+    public async Task<CatalogImportResult> ImportArtPrintsAsync(CatalogImportConfig config)
+    {
+        var result = new CatalogImportResult();
+
+        try
+        {
+            _logger.LogInformation("Starting art print import from SQL Server...");
+
+            await using var sqlConn = new SqlConnection(config.SqlServerConnection);
+            await sqlConn.OpenAsync();
+
+            // Import vendors
+            var vendors = await ImportArtPrintVendors(sqlConn);
+            result.ArtPrintVendorsImported = vendors.Count;
+            _logger.LogInformation("Read {Count} art print vendors from SQL Server", vendors.Count);
+
+            // Build vendor lookup for denormalization
+            var vendorLookup = vendors.ToDictionary(v => v.Id);
+
+            // Import art prints
+            var prints = await ImportArtPrintItems(sqlConn, vendorLookup);
+            result.ArtPrintsImported = prints.Count;
+            _logger.LogInformation("Read {Count} art prints from SQL Server", prints.Count);
+
+            // Write to SQLite
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            // Clear existing art print data
+            db.ArtPrints.RemoveRange(db.ArtPrints);
+            db.ArtPrintVendors.RemoveRange(db.ArtPrintVendors);
+            await db.SaveChangesAsync();
+
+            // Insert fresh data
+            db.ArtPrintVendors.AddRange(vendors);
+            await db.SaveChangesAsync();
+
+            db.ArtPrints.AddRange(prints);
+            await db.SaveChangesAsync();
+
+            result.Success = true;
+            _logger.LogInformation(
+                "Art print import complete: {Vendors} vendors, {Prints} prints",
+                result.ArtPrintVendorsImported, result.ArtPrintsImported);
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.Error = ex.Message;
+            _logger.LogError(ex, "Art print import failed");
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Get stats about the current catalog in SQLite.
     /// </summary>
     public async Task<CatalogStats> GetStatsAsync()
@@ -113,7 +171,9 @@ public class CatalogImportService
         {
             Vendors = await db.CatalogVendors.CountAsync(),
             Mouldings = await db.CatalogMouldings.CountAsync(),
-            Mats = await db.CatalogMats.CountAsync()
+            Mats = await db.CatalogMats.CountAsync(),
+            ArtPrintVendors = await db.ArtPrintVendors.CountAsync(),
+            ArtPrints = await db.ArtPrints.CountAsync()
         };
     }
 
@@ -586,5 +646,243 @@ public class CatalogImportService
         if (isLiner) return "Liner";
         if (isBoxer) return "Boxer";
         return "Standard";
+    }
+
+    // =========================================================================
+    // Art Print Search & Filters
+    // =========================================================================
+
+    /// <summary>
+    /// Search art prints with multi-field filtering and pagination.
+    /// </summary>
+    public async Task<ArtPrintSearchResult> SearchArtPrintsAsync(ArtPrintSearchRequest request)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var query = db.ArtPrints.Where(p => p.IsActive);
+
+        if (!string.IsNullOrEmpty(request.Vendor))
+            query = query.Where(p => p.VendorName.Contains(request.Vendor));
+
+        if (!string.IsNullOrEmpty(request.Artist))
+            query = query.Where(p => p.Artist != null && p.Artist.Contains(request.Artist));
+
+        if (!string.IsNullOrEmpty(request.Genre))
+            query = query.Where(p => p.Genre != null && p.Genre.Contains(request.Genre));
+
+        if (!string.IsNullOrEmpty(request.Style))
+            query = query.Where(p => (p.Style != null && p.Style.Contains(request.Style))
+                || (p.AiStyle != null && p.AiStyle.Contains(request.Style)));
+
+        if (!string.IsNullOrEmpty(request.Mood))
+            query = query.Where(p => p.AiMood != null && p.AiMood.Contains(request.Mood));
+
+        if (!string.IsNullOrEmpty(request.Orientation))
+            query = query.Where(p => p.Orientation != null && p.Orientation == request.Orientation);
+
+        if (!string.IsNullOrEmpty(request.Color))
+            query = query.Where(p =>
+                (p.PrimaryColorName != null && p.PrimaryColorName.Contains(request.Color))
+                || (p.SecondaryColorName != null && p.SecondaryColorName.Contains(request.Color)));
+
+        if (!string.IsNullOrEmpty(request.Query))
+        {
+            var q = request.Query;
+            query = query.Where(p =>
+                p.Title.Contains(q)
+                || (p.Artist != null && p.Artist.Contains(q))
+                || (p.AiSubjectTags != null && p.AiSubjectTags.Contains(q))
+                || (p.AiDescription != null && p.AiDescription.Contains(q))
+                || p.ItemNumber.Contains(q));
+        }
+
+        var totalCount = await query.CountAsync();
+        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
+        var page = Math.Clamp(request.Page, 1, Math.Max(1, totalPages));
+
+        var prints = await query
+            .OrderBy(p => p.Title)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return new ArtPrintSearchResult
+        {
+            Prints = prints,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize,
+            TotalPages = totalPages
+        };
+    }
+
+    /// <summary>
+    /// Get distinct filter values for art prints.
+    /// </summary>
+    public async Task<ArtPrintFilterOptions> GetArtPrintFilterOptionsAsync()
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var prints = await db.ArtPrints.Where(p => p.IsActive).ToListAsync();
+
+        return new ArtPrintFilterOptions
+        {
+            Vendors = prints.Select(p => p.VendorName)
+                .Where(v => !string.IsNullOrEmpty(v))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(v => v).ToList(),
+
+            Artists = prints.Select(p => p.Artist)
+                .Where(a => !string.IsNullOrEmpty(a))
+                .Select(a => a!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(a => a).ToList(),
+
+            Genres = prints.Select(p => p.Genre)
+                .Where(g => !string.IsNullOrEmpty(g))
+                .Select(g => g!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(g => g).ToList(),
+
+            Styles = prints.SelectMany(p => new[] { p.Style, p.AiStyle })
+                .Where(s => !string.IsNullOrEmpty(s))
+                .Select(s => s!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(s => s).ToList(),
+
+            Moods = prints.Select(p => p.AiMood)
+                .Where(m => !string.IsNullOrEmpty(m))
+                .Select(m => m!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(m => m).ToList(),
+
+            Orientations = prints.Select(p => p.Orientation)
+                .Where(o => !string.IsNullOrEmpty(o))
+                .Select(o => o!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(o => o).ToList(),
+
+            Colors = prints.SelectMany(p => new[] { p.PrimaryColorName, p.SecondaryColorName })
+                .Where(c => !string.IsNullOrEmpty(c))
+                .Select(c => c!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(c => c).ToList()
+        };
+    }
+
+    /// <summary>
+    /// Build the full image URL for an art print based on the vendor's URL pattern.
+    /// </summary>
+    public string? BuildArtPrintImageUrl(CatalogArtPrintVendor vendor, string? imageFileName)
+    {
+        if (string.IsNullOrEmpty(vendor.ImageBaseUrl) || string.IsNullOrEmpty(imageFileName))
+            return null;
+
+        if (!string.IsNullOrEmpty(vendor.ImagePathPattern))
+        {
+            var path = vendor.ImagePathPattern.Replace("{filename}", imageFileName);
+            return $"{vendor.ImageBaseUrl.TrimEnd('/')}/{path}";
+        }
+
+        return $"{vendor.ImageBaseUrl.TrimEnd('/')}/{imageFileName}";
+    }
+
+    // =========================================================================
+    // Art Print SQL Server Readers
+    // =========================================================================
+
+    private static async Task<List<CatalogArtPrintVendor>> ImportArtPrintVendors(SqlConnection conn)
+    {
+        var vendors = new List<CatalogArtPrintVendor>();
+
+        const string sql = @"
+            SELECT Id, Name, Code, Website, ImageBaseUrl, ImagePathPattern, IsActive
+            FROM ArtPrintVendor
+            WHERE IsActive = 1";
+
+        await using var cmd = new SqlCommand(sql, conn);
+        await using var reader = await cmd.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            vendors.Add(new CatalogArtPrintVendor
+            {
+                Id = reader.GetInt32(0),
+                Name = reader.IsDBNull(1) ? "" : reader.GetString(1),
+                Code = reader.IsDBNull(2) ? "" : reader.GetString(2),
+                Website = reader.IsDBNull(3) ? null : reader.GetString(3),
+                ImageBaseUrl = reader.IsDBNull(4) ? null : reader.GetString(4),
+                ImagePathPattern = reader.IsDBNull(5) ? null : reader.GetString(5),
+                IsActive = !reader.IsDBNull(6) && reader.GetBoolean(6)
+            });
+        }
+
+        return vendors;
+    }
+
+    private async Task<List<CatalogArtPrint>> ImportArtPrintItems(
+        SqlConnection conn, Dictionary<int, CatalogArtPrintVendor> vendorLookup)
+    {
+        var prints = new List<CatalogArtPrint>();
+
+        const string sql = @"
+            SELECT Id, VendorId, ItemNumber, Title, Artist,
+                   Genre, Category, SubjectMatter, Style, Medium,
+                   ImageWidthIn, ImageHeightIn, Orientation,
+                   WholesaleCost, RetailPrice, ImageFileName,
+                   IsActive, IsNewRelease, ReleaseYear
+            FROM ArtPrint
+            WHERE IsActive = 1";
+
+        await using var cmd = new SqlCommand(sql, conn);
+        cmd.CommandTimeout = 120;
+        await using var reader = await cmd.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            var vendorId = reader.GetInt32(1);
+            if (!vendorLookup.TryGetValue(vendorId, out var vendor))
+                continue;
+
+            var imageFileName = reader.IsDBNull(15) ? null : reader.GetString(15);
+
+            var print = new CatalogArtPrint
+            {
+                Id = reader.GetInt32(0),
+                VendorId = vendorId,
+                ItemNumber = reader.IsDBNull(2) ? "" : reader.GetString(2),
+                Title = reader.IsDBNull(3) ? "" : reader.GetString(3),
+                Artist = reader.IsDBNull(4) ? null : reader.GetString(4),
+                VendorName = vendor.Name,
+                Genre = reader.IsDBNull(5) ? null : reader.GetString(5),
+                Category = reader.IsDBNull(6) ? null : reader.GetString(6),
+                SubjectMatter = reader.IsDBNull(7) ? null : reader.GetString(7),
+                Style = reader.IsDBNull(8) ? null : reader.GetString(8),
+                Medium = reader.IsDBNull(9) ? null : reader.GetString(9),
+                ImageWidthIn = reader.IsDBNull(10) ? null : reader.GetDecimal(10),
+                ImageHeightIn = reader.IsDBNull(11) ? null : reader.GetDecimal(11),
+                Orientation = reader.IsDBNull(12) ? null : reader.GetString(12),
+                WholesaleCost = reader.IsDBNull(13) ? null : reader.GetDecimal(13),
+                RetailPrice = reader.IsDBNull(14) ? null : reader.GetDecimal(14),
+                ImageFileName = imageFileName,
+                IsActive = !reader.IsDBNull(16) && reader.GetBoolean(16),
+                IsNewRelease = !reader.IsDBNull(17) && reader.GetBoolean(17),
+                ReleaseYear = reader.IsDBNull(18) ? null : reader.GetInt32(18)
+            };
+
+            // Build image URLs using vendor's URL pattern
+            print.ImageUrl = BuildArtPrintImageUrl(vendor, imageFileName);
+            print.ThumbnailUrl = print.ImageUrl; // Same URL for now; vendors may have separate thumb paths
+
+            prints.Add(print);
+        }
+
+        _logger.LogInformation("Imported {Count} art prints across {Vendors} vendors",
+            prints.Count, vendorLookup.Count);
+
+        return prints;
     }
 }

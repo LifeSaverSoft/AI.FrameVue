@@ -42,6 +42,9 @@ public class CatalogEnrichmentService
         var totalMats = await db.CatalogMats.CountAsync();
         var analyzedMats = await db.CatalogMats.CountAsync(m => m.ImageAnalyzedAt != null);
 
+        var totalArtPrints = await db.ArtPrints.CountAsync();
+        var analyzedArtPrints = await db.ArtPrints.CountAsync(p => p.ImageAnalyzedAt != null);
+
         return new EnrichmentStatus
         {
             TotalMouldings = totalMouldings,
@@ -49,7 +52,10 @@ public class CatalogEnrichmentService
             RemainingMouldings = totalMouldings - analyzedMouldings,
             TotalMats = totalMats,
             AnalyzedMats = analyzedMats,
-            RemainingMats = totalMats - analyzedMats
+            RemainingMats = totalMats - analyzedMats,
+            TotalArtPrints = totalArtPrints,
+            AnalyzedArtPrints = analyzedArtPrints,
+            RemainingArtPrints = totalArtPrints - analyzedArtPrints
         };
     }
 
@@ -193,6 +199,224 @@ public class CatalogEnrichmentService
             result.Analyzed, result.Skipped, result.Failed, result.Remaining);
 
         return result;
+    }
+
+    // =========================================================================
+    // Art Print Enrichment
+    // =========================================================================
+
+    public async Task<EnrichmentResult> EnrichArtPrintsAsync(int batchSize = 25, string? vendorFilter = null)
+    {
+        var result = new EnrichmentResult();
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var query = db.ArtPrints
+            .Where(p => p.ImageAnalyzedAt == null && p.ImageUrl != null);
+
+        if (!string.IsNullOrEmpty(vendorFilter))
+            query = query.Where(p => p.VendorName.Contains(vendorFilter));
+
+        var items = await query.OrderBy(p => p.Id).Take(batchSize).ToListAsync();
+        result.TotalInBatch = items.Count;
+
+        _logger.LogInformation("Enriching {Count} art prints...", items.Count);
+
+        foreach (var item in items)
+        {
+            try
+            {
+                var imageBytes = await DownloadImageAsync(item.ImageUrl!);
+                if (imageBytes == null)
+                {
+                    result.Skipped++;
+                    _logger.LogWarning("Skipped art print {Id} ({Title}) — image download failed", item.Id, item.Title);
+                    item.ImageAnalyzedAt = DateTime.UtcNow;
+                    continue;
+                }
+
+                var analysis = await AnalyzeArtPrintAsync(imageBytes);
+                if (analysis != null)
+                {
+                    item.PrimaryColorHex = analysis.PrimaryColorHex;
+                    item.PrimaryColorName = analysis.PrimaryColorName;
+                    item.SecondaryColorHex = analysis.SecondaryColorHex;
+                    item.SecondaryColorName = analysis.SecondaryColorName;
+                    item.TertiaryColorHex = analysis.TertiaryColorHex;
+                    item.TertiaryColorName = analysis.TertiaryColorName;
+                    item.ColorTemperature = analysis.ColorTemperature;
+                    item.AiMood = analysis.Mood;
+                    item.AiStyle = analysis.Style;
+                    item.AiSubjectTags = analysis.SubjectTags;
+                    item.AiDescription = analysis.Description;
+                    item.ImageAnalyzedAt = DateTime.UtcNow;
+                    result.Analyzed++;
+                }
+                else
+                {
+                    item.ImageAnalyzedAt = DateTime.UtcNow;
+                    result.Failed++;
+                }
+
+                await db.SaveChangesAsync();
+                await Task.Delay(200);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to enrich art print {Id} ({Title})", item.Id, item.Title);
+                result.Failed++;
+            }
+        }
+
+        result.Remaining = await db.ArtPrints.CountAsync(p => p.ImageAnalyzedAt == null);
+
+        _logger.LogInformation("Art print enrichment batch done: {Analyzed} analyzed, {Skipped} skipped, {Failed} failed, {Remaining} remaining",
+            result.Analyzed, result.Skipped, result.Failed, result.Remaining);
+
+        return result;
+    }
+
+    private async Task<ArtPrintAnalysis?> AnalyzeArtPrintAsync(byte[] imageBytes)
+    {
+        if (string.IsNullOrEmpty(_apiKey))
+        {
+            _logger.LogError("OpenAI API key not configured — cannot enrich art prints");
+            return null;
+        }
+
+        var base64 = Convert.ToBase64String(imageBytes);
+        var dataUri = $"data:image/jpeg;base64,{base64}";
+
+        var prompt = BuildArtPrintPrompt();
+
+        var requestBody = new
+        {
+            model = _analysisModel,
+            input = new object[]
+            {
+                new
+                {
+                    role = "user",
+                    content = new object[]
+                    {
+                        new { type = "input_image", image_url = dataUri },
+                        new { type = "input_text", text = prompt }
+                    }
+                }
+            }
+        };
+
+        var client = _httpClientFactory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _apiKey);
+
+        var json = JsonSerializer.Serialize(requestBody);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync("https://api.openai.com/v1/responses", content);
+        var responseBody = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError("OpenAI vision error for art print: {Status} - {Body}", response.StatusCode,
+                responseBody.Length > 300 ? responseBody[..300] : responseBody);
+            return null;
+        }
+
+        return ParseArtPrintAnalysis(responseBody);
+    }
+
+    private static string BuildArtPrintPrompt()
+    {
+        return "Analyze this art print image. Extract the following:\n" +
+            "1. primaryColorHex — the most dominant color as a hex code\n" +
+            "2. primaryColorName — a short descriptive name (e.g., \"ocean blue\", \"burnt sienna\")\n" +
+            "3. secondaryColorHex — second most dominant color hex\n" +
+            "4. secondaryColorName — descriptive name\n" +
+            "5. tertiaryColorHex — third color hex, null if fewer than 3 distinct colors\n" +
+            "6. tertiaryColorName — descriptive name, null if none\n" +
+            "7. colorTemperature — warm, cool, or neutral\n" +
+            "8. mood — the emotional feeling (e.g., \"serene\", \"dramatic\", \"joyful\", \"melancholic\", \"energetic\", \"romantic\", \"contemplative\")\n" +
+            "9. style — the art style (e.g., \"abstract\", \"impressionist\", \"photographic\", \"modern\", \"traditional\", \"minimalist\", \"pop art\", \"watercolor\")\n" +
+            "10. subjectTags — comma-separated subject tags (e.g., \"landscape,ocean,sunset,beach\" or \"flowers,garden,spring\")\n" +
+            "11. description — a one-sentence description of the artwork\n\n" +
+            "Respond with ONLY this JSON (no other text):\n" +
+            "{\"primaryColorHex\":\"#...\",\"primaryColorName\":\"...\",\"secondaryColorHex\":\"#...\",\"secondaryColorName\":\"...\"," +
+            "\"tertiaryColorHex\":\"#...\" or null,\"tertiaryColorName\":\"...\" or null," +
+            "\"colorTemperature\":\"...\",\"mood\":\"...\",\"style\":\"...\",\"subjectTags\":\"...\",\"description\":\"...\"}";
+    }
+
+    private ArtPrintAnalysis? ParseArtPrintAnalysis(string responseBody)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(responseBody);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("output", out var output))
+                return null;
+
+            foreach (var item in output.EnumerateArray())
+            {
+                if (item.TryGetProperty("type", out var typeProp) &&
+                    typeProp.GetString() == "message" &&
+                    item.TryGetProperty("content", out var contentArray))
+                {
+                    foreach (var ci in contentArray.EnumerateArray())
+                    {
+                        if (ci.TryGetProperty("type", out var ct) &&
+                            ct.GetString() == "output_text" &&
+                            ci.TryGetProperty("text", out var textProp))
+                        {
+                            var text = textProp.GetString() ?? "";
+                            return ParseArtPrintJson(text);
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse OpenAI art print vision response");
+        }
+
+        return null;
+    }
+
+    private ArtPrintAnalysis? ParseArtPrintJson(string text)
+    {
+        try
+        {
+            var start = text.IndexOf('{');
+            var end = text.LastIndexOf('}');
+            if (start < 0 || end <= start) return null;
+
+            var jsonText = text[start..(end + 1)];
+            using var doc = JsonDocument.Parse(jsonText);
+            var root = doc.RootElement;
+
+            return new ArtPrintAnalysis
+            {
+                PrimaryColorHex = GetNullableString(root, "primaryColorHex"),
+                PrimaryColorName = GetNullableString(root, "primaryColorName"),
+                SecondaryColorHex = GetNullableString(root, "secondaryColorHex"),
+                SecondaryColorName = GetNullableString(root, "secondaryColorName"),
+                TertiaryColorHex = GetNullableString(root, "tertiaryColorHex"),
+                TertiaryColorName = GetNullableString(root, "tertiaryColorName"),
+                ColorTemperature = GetNullableString(root, "colorTemperature"),
+                Mood = GetNullableString(root, "mood"),
+                Style = GetNullableString(root, "style"),
+                SubjectTags = GetNullableString(root, "subjectTags"),
+                Description = GetNullableString(root, "description")
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse art print analysis JSON: {Text}",
+                text.Length > 200 ? text[..200] : text);
+            return null;
+        }
     }
 
     // =========================================================================
@@ -413,4 +637,22 @@ public class EnrichmentStatus
     public int TotalMats { get; set; }
     public int AnalyzedMats { get; set; }
     public int RemainingMats { get; set; }
+    public int TotalArtPrints { get; set; }
+    public int AnalyzedArtPrints { get; set; }
+    public int RemainingArtPrints { get; set; }
+}
+
+public class ArtPrintAnalysis
+{
+    public string? PrimaryColorHex { get; set; }
+    public string? PrimaryColorName { get; set; }
+    public string? SecondaryColorHex { get; set; }
+    public string? SecondaryColorName { get; set; }
+    public string? TertiaryColorHex { get; set; }
+    public string? TertiaryColorName { get; set; }
+    public string? ColorTemperature { get; set; }
+    public string? Mood { get; set; }
+    public string? Style { get; set; }
+    public string? SubjectTags { get; set; }
+    public string? Description { get; set; }
 }

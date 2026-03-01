@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using AI.FrameVue.Models;
 using AI.FrameVue.Services;
 using AI.FrameVue.Data;
@@ -11,15 +12,18 @@ public class HomeController : Controller
 {
     private readonly ILogger<HomeController> _logger;
     private readonly OpenAIFramingService _framingService;
+    private readonly CatalogImportService _catalogImport;
     private readonly AppDbContext _db;
 
     public HomeController(
         ILogger<HomeController> logger,
         OpenAIFramingService framingService,
+        CatalogImportService catalogImport,
         AppDbContext db)
     {
         _logger = logger;
         _framingService = framingService;
+        _catalogImport = catalogImport;
         _db = db;
     }
 
@@ -255,9 +259,251 @@ public class HomeController : Controller
         }
     }
 
+    // =========================================================================
+    // Art Print Browse & Discovery
+    // =========================================================================
+
+    /// <summary>
+    /// Public paginated art print search with all filters + text query.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> BrowseArtPrints(
+        string? vendor, string? artist, string? genre, string? style,
+        string? mood, string? orientation, string? color, string? query,
+        int page = 1, int pageSize = 24)
+    {
+        var request = new ArtPrintSearchRequest
+        {
+            Vendor = vendor,
+            Artist = artist,
+            Genre = genre,
+            Style = style,
+            Mood = mood,
+            Orientation = orientation,
+            Color = color,
+            Query = query,
+            Page = page,
+            PageSize = pageSize
+        };
+
+        var result = await _catalogImport.SearchArtPrintsAsync(request);
+        return Json(result);
+    }
+
+    /// <summary>
+    /// Filter option values for art print dropdowns.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> ArtPrintFilters()
+    {
+        var options = await _catalogImport.GetArtPrintFilterOptionsAsync();
+        return Json(options);
+    }
+
+    /// <summary>
+    /// AI-guided discovery: takes room/mood/colors/style selections, queries matching prints.
+    /// </summary>
+    [HttpPost]
+    public async Task<IActionResult> DiscoverPrints([FromBody] DiscoverPrintsRequest request)
+    {
+        var searchRequest = new ArtPrintSearchRequest
+        {
+            Mood = request.Mood,
+            Style = request.Style,
+            Orientation = request.Orientation,
+            Page = 1,
+            PageSize = request.Limit > 0 ? request.Limit : 24
+        };
+
+        var result = await _catalogImport.SearchArtPrintsAsync(searchRequest);
+
+        // If color preferences given, re-sort by color distance
+        if (request.Colors != null && request.Colors.Count > 0 && result.Prints.Count > 0)
+        {
+            var scored = result.Prints.Select(p =>
+            {
+                double score = 0;
+                if (!string.IsNullOrEmpty(p.PrimaryColorHex))
+                {
+                    foreach (var userColor in request.Colors)
+                    {
+                        score += 3.0 / (1.0 + ColorDistance(p.PrimaryColorHex, userColor));
+                        if (!string.IsNullOrEmpty(p.SecondaryColorHex))
+                            score += 1.5 / (1.0 + ColorDistance(p.SecondaryColorHex, userColor));
+                    }
+                }
+                if (!string.IsNullOrEmpty(p.AiMood) && p.AiMood.Equals(request.Mood, StringComparison.OrdinalIgnoreCase))
+                    score += 2;
+                if (!string.IsNullOrEmpty(p.AiStyle) && p.AiStyle.Equals(request.Style, StringComparison.OrdinalIgnoreCase))
+                    score += 2;
+                if (!string.IsNullOrEmpty(p.ColorTemperature) && !string.IsNullOrEmpty(request.ColorTemperature)
+                    && p.ColorTemperature.Equals(request.ColorTemperature, StringComparison.OrdinalIgnoreCase))
+                    score += 1;
+                return new { Print = p, Score = score };
+            })
+            .OrderByDescending(x => x.Score)
+            .Select(x => x.Print)
+            .ToList();
+
+            result.Prints = scored;
+        }
+
+        // Exclude dismissed prints
+        if (request.ExcludeIds != null && request.ExcludeIds.Count > 0)
+        {
+            result.Prints = result.Prints.Where(p => !request.ExcludeIds.Contains(p.Id)).ToList();
+        }
+
+        return Json(result);
+    }
+
+    /// <summary>
+    /// Find prints similar to a given print by color, mood, style, genre, subject tags.
+    /// </summary>
+    [HttpPost]
+    public async Task<IActionResult> SimilarPrints([FromBody] SimilarPrintsRequest request)
+    {
+        if (request.PrintId <= 0)
+            return BadRequest(new { error = "No print ID provided." });
+
+        var source = await _db.ArtPrints.FindAsync(request.PrintId);
+        if (source == null)
+            return NotFound(new { error = "Print not found." });
+
+        // Get all active prints except the source
+        var candidates = await _db.ArtPrints
+            .Where(p => p.IsActive && p.Id != source.Id)
+            .ToListAsync();
+
+        // Exclude dismissed prints
+        var excludeSet = request.ExcludeIds?.ToHashSet() ?? new HashSet<int>();
+
+        var scored = candidates
+            .Where(p => !excludeSet.Contains(p.Id))
+            .Select(p =>
+            {
+                double score = 0;
+
+                // Color distance (3x weight)
+                if (!string.IsNullOrEmpty(source.PrimaryColorHex) && !string.IsNullOrEmpty(p.PrimaryColorHex))
+                    score += 3.0 / (1.0 + ColorDistance(source.PrimaryColorHex, p.PrimaryColorHex));
+
+                // Mood match (2x)
+                if (!string.IsNullOrEmpty(source.AiMood) && !string.IsNullOrEmpty(p.AiMood)
+                    && source.AiMood.Equals(p.AiMood, StringComparison.OrdinalIgnoreCase))
+                    score += 2;
+
+                // Style match (2x)
+                if (!string.IsNullOrEmpty(source.AiStyle) && !string.IsNullOrEmpty(p.AiStyle)
+                    && source.AiStyle.Equals(p.AiStyle, StringComparison.OrdinalIgnoreCase))
+                    score += 2;
+
+                // Genre match (1x)
+                if (!string.IsNullOrEmpty(source.Genre) && !string.IsNullOrEmpty(p.Genre)
+                    && source.Genre.Equals(p.Genre, StringComparison.OrdinalIgnoreCase))
+                    score += 1;
+
+                // Subject tag overlap (0.5x each)
+                if (!string.IsNullOrEmpty(source.AiSubjectTags) && !string.IsNullOrEmpty(p.AiSubjectTags))
+                {
+                    var srcTags = source.AiSubjectTags.Split(',').Select(t => t.Trim().ToLowerInvariant()).ToHashSet();
+                    var pTags = p.AiSubjectTags.Split(',').Select(t => t.Trim().ToLowerInvariant());
+                    score += pTags.Count(t => srcTags.Contains(t)) * 0.5;
+                }
+
+                // Color temperature match (1x)
+                if (!string.IsNullOrEmpty(source.ColorTemperature) && !string.IsNullOrEmpty(p.ColorTemperature)
+                    && source.ColorTemperature.Equals(p.ColorTemperature, StringComparison.OrdinalIgnoreCase))
+                    score += 1;
+
+                return new { Print = p, Score = score };
+            })
+            .OrderByDescending(x => x.Score)
+            .Take(request.Limit > 0 ? request.Limit : 12)
+            .Select(x => x.Print)
+            .ToList();
+
+        return Json(new { prints = scored });
+    }
+
+    /// <summary>
+    /// Download a print image from URL and run it through the analysis pipeline.
+    /// </summary>
+    [HttpPost]
+    public async Task<IActionResult> AnalyzePrint([FromBody] AnalyzePrintRequest request)
+    {
+        if (string.IsNullOrEmpty(request.ImageUrl))
+            return BadRequest(new { error = "No image URL provided." });
+
+        try
+        {
+            using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+            var imageBytes = await httpClient.GetByteArrayAsync(request.ImageUrl);
+            var contentType = "image/jpeg";
+            if (request.ImageUrl.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                contentType = "image/png";
+
+            var analysis = await _framingService.AnalyzeImageAsync(imageBytes, contentType, null);
+            return Json(analysis);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to analyze print from URL: {Url}", request.ImageUrl);
+            return StatusCode(500, new { error = "Failed to analyze the art print." });
+        }
+    }
+
+    // =========================================================================
+    // Helpers
+    // =========================================================================
+
+    private static double ColorDistance(string hex1, string hex2)
+    {
+        try
+        {
+            var r1 = Convert.ToInt32(hex1[1..3], 16);
+            var g1 = Convert.ToInt32(hex1[3..5], 16);
+            var b1 = Convert.ToInt32(hex1[5..7], 16);
+            var r2 = Convert.ToInt32(hex2[1..3], 16);
+            var g2 = Convert.ToInt32(hex2[3..5], 16);
+            var b2 = Convert.ToInt32(hex2[5..7], 16);
+            return Math.Sqrt(Math.Pow(r1 - r2, 2) + Math.Pow(g1 - g2, 2) + Math.Pow(b1 - b2, 2));
+        }
+        catch
+        {
+            return 999;
+        }
+    }
+
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()
     {
         return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
     }
+}
+
+// === Art Print Discovery DTOs ===
+
+public class DiscoverPrintsRequest
+{
+    public string? Room { get; set; }
+    public string? Mood { get; set; }
+    public List<string>? Colors { get; set; }
+    public string? Style { get; set; }
+    public string? Orientation { get; set; }
+    public string? ColorTemperature { get; set; }
+    public List<int>? ExcludeIds { get; set; }
+    public int Limit { get; set; } = 24;
+}
+
+public class SimilarPrintsRequest
+{
+    public int PrintId { get; set; }
+    public List<int>? ExcludeIds { get; set; }
+    public int Limit { get; set; } = 12;
+}
+
+public class AnalyzePrintRequest
+{
+    public string ImageUrl { get; set; } = string.Empty;
 }

@@ -33,12 +33,23 @@
     var comparisonMode = false;
     var selectedForCompare = new Set();
 
+    // Browse & Discover state
+    var browseSection = document.getElementById('browse-section');
+    var discoverSection = document.getElementById('discover-section');
+    var artPrintPage = 1;
+    var artPrintHasMore = true;
+    var artPrintLoading = false;
+    var discoverySelections = { room: null, mood: null, colors: [], style: null };
+    var discoveryExcludeIds = [];
+    var currentPrintDetail = null;
+
     // === Section visibility ===
 
     function showSection(section) {
-        [uploadSection, loadingSection, resultsSection, errorSection]
+        [uploadSection, loadingSection, resultsSection, errorSection, browseSection, discoverSection]
+            .filter(Boolean)
             .forEach(s => s.classList.add('hidden'));
-        section.classList.remove('hidden');
+        if (section) section.classList.remove('hidden');
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -1643,5 +1654,432 @@
         d.textContent = str;
         return d.innerHTML;
     }
+
+    // =========================================================================
+    // ART PRINT BROWSE & DISCOVERY
+    // =========================================================================
+
+    // Expose selectMode globally for onclick in HTML
+    window.selectMode = function(mode) {
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        var btn = document.getElementById('mode-' + mode);
+        if (btn) btn.classList.add('active');
+
+        if (mode === 'upload') {
+            showSection(uploadSection);
+        } else if (mode === 'browse') {
+            showSection(browseSection);
+            if (!document.getElementById('browse-prints-grid').children.length) {
+                loadBrowseFilters();
+                loadArtPrints(true);
+            }
+        } else if (mode === 'discover') {
+            showSection(discoverSection);
+            initDiscoveryColorPalette();
+            restartDiscovery();
+        }
+    };
+
+    // === Browse: Load Filters ===
+    var browseFiltersLoaded = false;
+    function loadBrowseFilters() {
+        if (browseFiltersLoaded) return;
+        browseFiltersLoaded = true;
+        fetch('/Home/ArtPrintFilters')
+            .then(r => r.json())
+            .then(data => {
+                populateFilterSelect('filter-vendor', data.vendors);
+                populateFilterSelect('filter-artist', data.artists);
+                populateFilterSelect('filter-genre', data.genres);
+                populateFilterSelect('filter-style', data.styles);
+                populateFilterSelect('filter-mood', data.moods);
+            })
+            .catch(() => {});
+    }
+
+    function populateFilterSelect(id, options) {
+        var sel = document.getElementById(id);
+        if (!sel || !options) return;
+        var first = sel.options[0];
+        sel.innerHTML = '';
+        sel.appendChild(first);
+        options.forEach(opt => {
+            var o = document.createElement('option');
+            o.value = opt;
+            o.textContent = opt;
+            sel.appendChild(o);
+        });
+    }
+
+    // === Browse: Toggle Filters ===
+    window.toggleBrowseFilters = function() {
+        var panel = document.getElementById('browse-filter-panel');
+        panel.classList.toggle('hidden');
+    };
+
+    // === Browse: Load Art Prints ===
+    window.loadArtPrints = function(reset) {
+        if (artPrintLoading) return;
+        if (reset) {
+            artPrintPage = 1;
+            artPrintHasMore = true;
+            document.getElementById('browse-prints-grid').innerHTML = '';
+        }
+        if (!artPrintHasMore) return;
+
+        artPrintLoading = true;
+        var loadEl = document.getElementById('browse-loading');
+        if (loadEl) loadEl.classList.remove('hidden');
+
+        var params = new URLSearchParams();
+        var q = document.getElementById('browse-query')?.value;
+        var vendor = document.getElementById('filter-vendor')?.value;
+        var artist = document.getElementById('filter-artist')?.value;
+        var genre = document.getElementById('filter-genre')?.value;
+        var style = document.getElementById('filter-style')?.value;
+        var mood = document.getElementById('filter-mood')?.value;
+        var orientation = document.getElementById('filter-orientation')?.value;
+
+        if (q) params.set('query', q);
+        if (vendor) params.set('vendor', vendor);
+        if (artist) params.set('artist', artist);
+        if (genre) params.set('genre', genre);
+        if (style) params.set('style', style);
+        if (mood) params.set('mood', mood);
+        if (orientation) params.set('orientation', orientation);
+        params.set('page', artPrintPage);
+        params.set('pageSize', 24);
+
+        fetch('/Home/BrowseArtPrints?' + params)
+            .then(r => r.json())
+            .then(data => {
+                renderPrintCards(data.prints, false);
+                document.getElementById('browse-info').textContent =
+                    data.totalCount + ' prints found' + (data.totalPages > 1 ? ' (page ' + data.page + '/' + data.totalPages + ')' : '');
+                artPrintPage = data.page + 1;
+                artPrintHasMore = data.page < data.totalPages;
+                updateActiveFilterChips();
+            })
+            .catch(e => {
+                document.getElementById('browse-info').textContent = 'Error loading prints';
+            })
+            .finally(() => {
+                artPrintLoading = false;
+                if (loadEl) loadEl.classList.add('hidden');
+            });
+    };
+
+    // === Browse: Render Print Cards ===
+    function renderPrintCards(prints, clear, containerId) {
+        var grid = document.getElementById(containerId || 'browse-prints-grid');
+        if (clear) grid.innerHTML = '';
+
+        prints.forEach(p => {
+            var card = document.createElement('div');
+            card.className = 'print-card';
+            card.onclick = function() { showPrintDetail(p); };
+
+            var imgSrc = p.imageUrl || p.thumbnailUrl || '';
+            card.innerHTML =
+                (imgSrc ? '<img class="print-card-image" src="' + esc(imgSrc) + '" alt="' + esc(p.title) + '" loading="lazy" onerror="this.style.display=\'none\'" />'
+                    : '<div class="print-card-image" style="display:flex;align-items:center;justify-content:center;color:var(--text-secondary,#8888a0);font-size:0.75rem;">No Image</div>') +
+                '<div class="print-card-overlay">' +
+                    '<div class="print-card-title">' + esc(p.title) + '</div>' +
+                    '<div class="print-card-artist">' + esc(p.artist || 'Unknown Artist') + '</div>' +
+                '</div>';
+
+            grid.appendChild(card);
+        });
+    }
+
+    // === Browse: Active Filter Chips ===
+    function updateActiveFilterChips() {
+        var container = document.getElementById('browse-active-filters');
+        if (!container) return;
+        container.innerHTML = '';
+
+        var filters = [
+            { id: 'filter-vendor', label: 'Vendor' },
+            { id: 'filter-artist', label: 'Artist' },
+            { id: 'filter-genre', label: 'Genre' },
+            { id: 'filter-style', label: 'Style' },
+            { id: 'filter-mood', label: 'Mood' },
+            { id: 'filter-orientation', label: 'Orientation' }
+        ];
+
+        filters.forEach(f => {
+            var val = document.getElementById(f.id)?.value;
+            if (val) {
+                var chip = document.createElement('span');
+                chip.className = 'filter-chip';
+                chip.innerHTML = esc(f.label) + ': ' + esc(val) +
+                    ' <span class="filter-chip-remove" data-filter="' + f.id + '">&times;</span>';
+                chip.querySelector('.filter-chip-remove').onclick = function() {
+                    document.getElementById(f.id).value = '';
+                    loadArtPrints(true);
+                };
+                container.appendChild(chip);
+            }
+        });
+    }
+
+    // === Browse: Infinite Scroll ===
+    window.addEventListener('scroll', function() {
+        if (!browseSection || browseSection.classList.contains('hidden')) return;
+        if (artPrintLoading || !artPrintHasMore) return;
+        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 300) {
+            loadArtPrints(false);
+        }
+    });
+
+    // === Browse: Search on Enter ===
+    var browseQuery = document.getElementById('browse-query');
+    if (browseQuery) {
+        browseQuery.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') loadArtPrints(true);
+        });
+    }
+
+    // === Browse: Filter change handlers ===
+    ['filter-vendor', 'filter-artist', 'filter-genre', 'filter-style', 'filter-mood', 'filter-orientation'].forEach(id => {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('change', function() { loadArtPrints(true); });
+    });
+
+    // =========================================================================
+    // DISCOVERY WIZARD
+    // =========================================================================
+
+    var discoverySteps = ['room', 'mood', 'colors', 'style', 'results'];
+
+    function initDiscoveryColorPalette() {
+        var palette = document.getElementById('discover-color-palette');
+        if (!palette || palette.children.length > 0) return;
+
+        var colors = [
+            '#E74C3C', '#E67E22', '#F1C40F', '#2ECC71', '#1ABC9C',
+            '#3498DB', '#2C3E50', '#9B59B6', '#E91E63', '#795548',
+            '#FF9800', '#CDDC39', '#00BCD4', '#607D8B', '#F5F5DC',
+            '#FAEBD7', '#D4A574', '#8B4513', '#000000', '#FFFFFF'
+        ];
+
+        colors.forEach(hex => {
+            var swatch = document.createElement('button');
+            swatch.className = 'discover-color-swatch';
+            swatch.style.backgroundColor = hex;
+            swatch.dataset.color = hex;
+            swatch.onclick = function() {
+                if (swatch.classList.contains('selected')) {
+                    swatch.classList.remove('selected');
+                    discoverySelections.colors = discoverySelections.colors.filter(c => c !== hex);
+                } else if (discoverySelections.colors.length < 3) {
+                    swatch.classList.add('selected');
+                    discoverySelections.colors.push(hex);
+                }
+                var nextBtn = document.getElementById('colors-next-btn');
+                if (nextBtn) nextBtn.style.display = discoverySelections.colors.length > 0 ? '' : 'none';
+            };
+            palette.appendChild(swatch);
+        });
+    }
+
+    window.selectDiscoveryOption = function(step, btn) {
+        var value = btn.dataset.value;
+
+        // Deselect siblings
+        btn.parentElement.querySelectorAll('.discover-option').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+
+        discoverySelections[step] = value;
+
+        // Auto-advance after a brief delay
+        setTimeout(function() { advanceDiscoveryStep(step); }, 300);
+    };
+
+    window.advanceDiscoveryStep = function(currentStep) {
+        var idx = discoverySteps.indexOf(currentStep);
+        if (idx < 0 || idx >= discoverySteps.length - 1) return;
+
+        var nextStep = discoverySteps[idx + 1];
+
+        document.getElementById('discover-step-' + currentStep)?.classList.remove('active');
+        document.getElementById('discover-step-' + nextStep)?.classList.add('active');
+
+        if (nextStep === 'results') {
+            loadDiscoveryResults();
+        }
+    };
+
+    window.loadDiscoveryResults = function() {
+        var grid = document.getElementById('discover-prints-grid');
+        var loadEl = document.getElementById('discover-loading');
+        if (loadEl) loadEl.classList.remove('hidden');
+
+        fetch('/Home/DiscoverPrints', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                room: discoverySelections.room,
+                mood: discoverySelections.mood,
+                colors: discoverySelections.colors,
+                style: discoverySelections.style,
+                excludeIds: discoveryExcludeIds,
+                limit: 24
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            renderPrintCards(data.prints, false, 'discover-prints-grid');
+        })
+        .catch(() => {})
+        .finally(() => {
+            if (loadEl) loadEl.classList.add('hidden');
+        });
+    };
+
+    window.restartDiscovery = function() {
+        discoverySelections = { room: null, mood: null, colors: [], style: null };
+        discoveryExcludeIds = [];
+
+        discoverySteps.forEach(step => {
+            var el = document.getElementById('discover-step-' + step);
+            if (el) el.classList.remove('active');
+        });
+        document.getElementById('discover-step-room')?.classList.add('active');
+
+        // Reset selected states
+        document.querySelectorAll('.discover-option.selected').forEach(b => b.classList.remove('selected'));
+        document.querySelectorAll('.discover-color-swatch.selected').forEach(s => s.classList.remove('selected'));
+        document.getElementById('discover-prints-grid').innerHTML = '';
+        var nextBtn = document.getElementById('colors-next-btn');
+        if (nextBtn) nextBtn.style.display = 'none';
+    };
+
+    // =========================================================================
+    // PRINT DETAIL MODAL
+    // =========================================================================
+
+    window.showPrintDetail = function(print) {
+        currentPrintDetail = print;
+        var modal = document.getElementById('print-detail-modal');
+
+        document.getElementById('print-detail-image').src = print.imageUrl || print.thumbnailUrl || '';
+        document.getElementById('print-detail-title').textContent = print.title || 'Untitled';
+        document.getElementById('print-detail-artist').textContent = (print.artist || 'Unknown Artist') + '  \u2022  ' + (print.vendorName || '');
+
+        // Badges
+        var badges = [];
+        if (print.genre) badges.push(print.genre);
+        if (print.aiStyle || print.style) badges.push(print.aiStyle || print.style);
+        if (print.aiMood) badges.push(print.aiMood);
+        if (print.orientation) badges.push(print.orientation);
+        if (print.imageWidthIn && print.imageHeightIn)
+            badges.push(print.imageWidthIn + '" \u00d7 ' + print.imageHeightIn + '"');
+
+        document.getElementById('print-detail-badges').innerHTML =
+            badges.map(b => '<span class="print-detail-badge">' + esc(b) + '</span>').join('');
+
+        document.getElementById('print-detail-desc').textContent = print.aiDescription || '';
+
+        // Colors
+        var colorHtml = '';
+        [print.primaryColorHex, print.secondaryColorHex, print.tertiaryColorHex].filter(Boolean).forEach(hex => {
+            colorHtml += '<span class="print-detail-color" style="background:' + hex + ';" title="' + hex + '"></span>';
+        });
+        document.getElementById('print-detail-colors').innerHTML = colorHtml;
+
+        modal.classList.remove('hidden');
+    };
+
+    window.closePrintDetail = function() {
+        document.getElementById('print-detail-modal').classList.add('hidden');
+        currentPrintDetail = null;
+    };
+
+    // Close modal on Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closePrintDetail();
+    });
+
+    // === Frame This Print ===
+    window.frameThisPrint = function() {
+        if (!currentPrintDetail || !currentPrintDetail.imageUrl) return;
+        closePrintDetail();
+
+        // Switch to upload mode, show loading
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('mode-upload')?.classList.add('active');
+        showSection(loadingSection);
+
+        // Download the image and run through analysis pipeline
+        fetch('/Home/AnalyzePrint', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageUrl: currentPrintDetail.imageUrl })
+        })
+        .then(r => r.json())
+        .then(analysis => {
+            if (analysis.error) {
+                errorMessage.textContent = analysis.error;
+                showSection(errorSection);
+                return;
+            }
+            currentAnalysis = analysis;
+
+            // Now fetch the image as a blob for FrameOne calls
+            return fetch(currentPrintDetail.imageUrl)
+                .then(r => r.blob())
+                .then(blob => {
+                    currentFile = new File([blob], 'art-print.jpg', { type: blob.type || 'image/jpeg' });
+                    previewImage.src = URL.createObjectURL(currentFile);
+                    generateFramesSequentially(currentFile, analysis);
+                });
+        })
+        .catch(e => {
+            errorMessage.textContent = 'Failed to analyze the art print.';
+            showSection(errorSection);
+        });
+    };
+
+    // === More Like This ===
+    window.moreLikeThis = function() {
+        if (!currentPrintDetail) return;
+        var printId = currentPrintDetail.id;
+        closePrintDetail();
+
+        // Switch to browse mode and show similar prints
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('mode-browse')?.classList.add('active');
+        showSection(browseSection);
+
+        document.getElementById('browse-prints-grid').innerHTML = '';
+        document.getElementById('browse-info').textContent = 'Finding similar prints...';
+        var loadEl = document.getElementById('browse-loading');
+        if (loadEl) loadEl.classList.remove('hidden');
+
+        fetch('/Home/SimilarPrints', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ printId: printId, excludeIds: discoveryExcludeIds, limit: 24 })
+        })
+        .then(r => r.json())
+        .then(data => {
+            renderPrintCards(data.prints, true);
+            document.getElementById('browse-info').textContent = data.prints.length + ' similar prints found';
+        })
+        .catch(() => {
+            document.getElementById('browse-info').textContent = 'Error finding similar prints';
+        })
+        .finally(() => {
+            if (loadEl) loadEl.classList.add('hidden');
+        });
+    };
+
+    // === Not This ===
+    window.notLikeThis = function() {
+        if (!currentPrintDetail) return;
+        discoveryExcludeIds.push(currentPrintDetail.id);
+        closePrintDetail();
+    };
 
 })();

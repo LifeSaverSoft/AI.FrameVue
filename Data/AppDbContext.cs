@@ -16,6 +16,10 @@ public class AppDbContext : DbContext
     public DbSet<CatalogMoulding> CatalogMouldings => Set<CatalogMoulding>();
     public DbSet<CatalogMat> CatalogMats => Set<CatalogMat>();
 
+    // Art print catalog tables
+    public DbSet<CatalogArtPrintVendor> ArtPrintVendors => Set<CatalogArtPrintVendor>();
+    public DbSet<CatalogArtPrint> ArtPrints => Set<CatalogArtPrint>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<DesignSession>(entity =>
@@ -69,6 +73,28 @@ public class AppDbContext : DbContext
             entity.HasIndex(e => e.Material);
             entity.HasIndex(e => e.MatClass);
             entity.HasIndex(e => e.PrimaryColorHex);
+        });
+
+        // Art print catalog tables
+        modelBuilder.Entity<CatalogArtPrintVendor>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Code).IsUnique();
+        });
+
+        modelBuilder.Entity<CatalogArtPrint>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.VendorId);
+            entity.HasIndex(e => e.ItemNumber);
+            entity.HasIndex(e => e.Artist);
+            entity.HasIndex(e => e.Genre);
+            entity.HasIndex(e => e.Style);
+            entity.HasIndex(e => e.Orientation);
+            entity.HasIndex(e => e.PrimaryColorHex);
+            entity.HasIndex(e => e.AiMood);
+            entity.HasIndex(e => e.AiStyle);
+            entity.HasIndex(e => e.ColorTemperature);
         });
     }
 }

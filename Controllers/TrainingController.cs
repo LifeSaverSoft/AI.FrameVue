@@ -351,6 +351,84 @@ public class TrainingController : Controller
         return Json(new { items, total, page, pageSize, totalPages = (int)Math.Ceiling(total / (double)pageSize) });
     }
 
+    // === API: Art Print Import ===
+
+    [HttpGet]
+    public async Task<IActionResult> ArtPrintStats()
+    {
+        var stats = await _catalogImport.GetStatsAsync();
+        return Json(new { vendors = stats.ArtPrintVendors, prints = stats.ArtPrints });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ImportArtPrints([FromBody] CatalogImportRequest request)
+    {
+        if (!ValidateAdminKey(request.AdminKey))
+            return Unauthorized(new { error = "Invalid admin key." });
+
+        var connStr = !string.IsNullOrEmpty(request.SqlServerConnection)
+            ? request.SqlServerConnection
+            : _configuration["CatalogImport:SqlServerConnection"] ?? "";
+
+        if (string.IsNullOrEmpty(connStr))
+            return BadRequest(new { error = "No SQL Server connection string provided or configured." });
+
+        var config = new CatalogImportConfig { SqlServerConnection = connStr };
+
+        _logger.LogInformation("Starting art print import...");
+        var result = await _catalogImport.ImportArtPrintsAsync(config);
+
+        if (result.Success)
+            _logger.LogInformation("Art print import succeeded: {Vendors}V / {Prints}P",
+                result.ArtPrintVendorsImported, result.ArtPrintsImported);
+        else
+            _logger.LogError("Art print import failed: {Error}", result.Error);
+
+        return Json(result);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> EnrichArtPrints([FromBody] EnrichCatalogRequest request)
+    {
+        if (!ValidateAdminKey(request.AdminKey))
+            return Unauthorized(new { error = "Invalid admin key." });
+
+        var batchSize = request.BatchSize > 0 ? request.BatchSize : 25;
+        var result = await _catalogEnrichment.EnrichArtPrintsAsync(batchSize, request.VendorFilter);
+        return Json(result);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> BrowseArtPrints(
+        string? vendor, string? artist, string? genre, string? style,
+        string? mood, string? orientation, string? color, string? query,
+        int page = 1, int pageSize = 24)
+    {
+        var request = new ArtPrintSearchRequest
+        {
+            Vendor = vendor,
+            Artist = artist,
+            Genre = genre,
+            Style = style,
+            Mood = mood,
+            Orientation = orientation,
+            Color = color,
+            Query = query,
+            Page = page,
+            PageSize = pageSize
+        };
+
+        var result = await _catalogImport.SearchArtPrintsAsync(request);
+        return Json(result);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ArtPrintFilterOptions()
+    {
+        var options = await _catalogImport.GetArtPrintFilterOptionsAsync();
+        return Json(options);
+    }
+
     // === Helpers ===
 
     private bool ValidateAdminKey(string? key)

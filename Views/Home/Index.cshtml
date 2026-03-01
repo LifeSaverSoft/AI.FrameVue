@@ -2,6 +2,24 @@
     ViewData["Title"] = "Frame Your Art";
 }
 
+<!-- Mode Selector -->
+<section class="mode-selector-section">
+    <div class="mode-selector">
+        <button class="mode-btn active" onclick="selectMode('upload')" id="mode-upload">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 8v8M8 12h8"/></svg>
+            <span>Upload Your Image</span>
+        </button>
+        <button class="mode-btn" onclick="selectMode('browse')" id="mode-browse">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            <span>Browse Art Prints</span>
+        </button>
+        <button class="mode-btn" onclick="selectMode('discover')" id="mode-discover">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 3c0 4-4 6-4 9s2 5 4 5 4-2 4-5-4-5-4-9z"/></svg>
+            <span>Help Me Find Art</span>
+        </button>
+    </div>
+</section>
+
 <!-- Upload Section -->
 <section id="upload-section" class="section upload-section">
     <div class="section-intro">
@@ -155,3 +173,196 @@
         <button id="retry-btn" class="btn-primary">Try Again</button>
     </div>
 </section>
+
+<!-- Browse Art Prints Section -->
+<section id="browse-section" class="section browse-section hidden">
+    <div class="section-intro">
+        <h1>Browse <span class="gold">Art Prints</span></h1>
+        <p class="subtitle">Explore art from top publishers. Find the perfect print, then frame it with AI.</p>
+    </div>
+
+    <div class="browse-search-bar">
+        <input type="text" id="browse-query" class="search-input" placeholder="Search by title, artist, or keyword..." />
+        <button class="btn-primary browse-search-btn" onclick="loadArtPrints(true)">Search</button>
+        <button class="btn-secondary browse-filter-toggle" onclick="toggleBrowseFilters()">
+            <svg viewBox="0 0 20 20" fill="none" width="16" height="16"><path d="M3 5h14M5 10h10M7 15h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Filters
+        </button>
+    </div>
+
+    <div id="browse-filter-panel" class="browse-filter-panel hidden">
+        <div class="filter-grid">
+            <div class="filter-group">
+                <label>Vendor</label>
+                <select id="filter-vendor"><option value="">All Vendors</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Artist</label>
+                <select id="filter-artist"><option value="">All Artists</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Genre</label>
+                <select id="filter-genre"><option value="">All Genres</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Style</label>
+                <select id="filter-style"><option value="">All Styles</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Mood</label>
+                <select id="filter-mood"><option value="">All Moods</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Orientation</label>
+                <select id="filter-orientation">
+                    <option value="">All</option>
+                    <option value="landscape">Landscape</option>
+                    <option value="portrait">Portrait</option>
+                    <option value="square">Square</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div id="browse-active-filters" class="filter-chips"></div>
+    <div id="browse-info" class="browse-info"></div>
+    <div id="browse-prints-grid" class="prints-grid"></div>
+    <div id="browse-loading" class="browse-loading hidden">
+        <div class="spinner"><div class="spinner-frame"></div></div>
+        <span>Loading prints...</span>
+    </div>
+</section>
+
+<!-- AI-Guided Discovery Section -->
+<section id="discover-section" class="section discover-section hidden">
+    <div class="section-intro">
+        <h1>Help Me Find <span class="gold">Art</span></h1>
+        <p class="subtitle">Answer a few quick questions and we'll curate art prints just for you.</p>
+    </div>
+
+    <!-- Step 1: Room -->
+    <div class="discover-step active" id="discover-step-room">
+        <h2 class="discover-question">Where will this art live?</h2>
+        <div class="discover-options">
+            <button class="discover-option" onclick="selectDiscoveryOption('room', this)" data-value="living room">
+                <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="15" width="30" height="15" rx="2"/><path d="M8 15V12a2 2 0 012-2h20a2 2 0 012 2v3"/></svg>
+                <span>Living Room</span>
+            </button>
+            <button class="discover-option" onclick="selectDiscoveryOption('room', this)" data-value="bedroom">
+                <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="18" width="30" height="12" rx="2"/><rect x="8" y="12" width="10" height="6" rx="1"/><rect x="22" y="12" width="10" height="6" rx="1"/></svg>
+                <span>Bedroom</span>
+            </button>
+            <button class="discover-option" onclick="selectDiscoveryOption('room', this)" data-value="office">
+                <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="8" y="10" width="24" height="16" rx="2"/><path d="M14 26h12v4H14z"/></svg>
+                <span>Office</span>
+            </button>
+            <button class="discover-option" onclick="selectDiscoveryOption('room', this)" data-value="dining room">
+                <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="20" cy="20" r="8"/><path d="M20 8v4M20 28v4M8 20h4M28 20h4"/></svg>
+                <span>Dining Room</span>
+            </button>
+            <button class="discover-option" onclick="selectDiscoveryOption('room', this)" data-value="hallway">
+                <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="10" y="5" width="20" height="30" rx="2"/><circle cx="26" cy="20" r="1.5"/></svg>
+                <span>Hallway</span>
+            </button>
+        </div>
+        <button class="discover-skip" onclick="advanceDiscoveryStep('room')">Skip</button>
+    </div>
+
+    <!-- Step 2: Mood -->
+    <div class="discover-step" id="discover-step-mood">
+        <h2 class="discover-question">What feeling do you want?</h2>
+        <div class="discover-options">
+            <button class="discover-option" onclick="selectDiscoveryOption('mood', this)" data-value="serene">
+                <span class="discover-emoji">&#x1f30a;</span><span>Calm & Serene</span>
+            </button>
+            <button class="discover-option" onclick="selectDiscoveryOption('mood', this)" data-value="dramatic">
+                <span class="discover-emoji">&#x26a1;</span><span>Bold & Dramatic</span>
+            </button>
+            <button class="discover-option" onclick="selectDiscoveryOption('mood', this)" data-value="joyful">
+                <span class="discover-emoji">&#x2600;</span><span>Joyful & Bright</span>
+            </button>
+            <button class="discover-option" onclick="selectDiscoveryOption('mood', this)" data-value="romantic">
+                <span class="discover-emoji">&#x1f339;</span><span>Warm & Romantic</span>
+            </button>
+            <button class="discover-option" onclick="selectDiscoveryOption('mood', this)" data-value="contemplative">
+                <span class="discover-emoji">&#x1f319;</span><span>Contemplative</span>
+            </button>
+            <button class="discover-option" onclick="selectDiscoveryOption('mood', this)" data-value="energetic">
+                <span class="discover-emoji">&#x1f525;</span><span>Energetic</span>
+            </button>
+        </div>
+        <button class="discover-skip" onclick="advanceDiscoveryStep('mood')">Skip</button>
+    </div>
+
+    <!-- Step 3: Colors -->
+    <div class="discover-step" id="discover-step-colors">
+        <h2 class="discover-question">Pick colors you love <span class="discover-hint">(up to 3)</span></h2>
+        <div class="discover-color-palette" id="discover-color-palette">
+            <!-- Populated by JS -->
+        </div>
+        <button class="discover-skip" onclick="advanceDiscoveryStep('colors')">Skip</button>
+        <button class="btn-primary discover-next" id="colors-next-btn" onclick="advanceDiscoveryStep('colors')" style="display:none;">Next</button>
+    </div>
+
+    <!-- Step 4: Style -->
+    <div class="discover-step" id="discover-step-style">
+        <h2 class="discover-question">What's your style?</h2>
+        <div class="discover-options">
+            <button class="discover-option" onclick="selectDiscoveryOption('style', this)" data-value="modern">
+                <span>Modern</span>
+            </button>
+            <button class="discover-option" onclick="selectDiscoveryOption('style', this)" data-value="traditional">
+                <span>Traditional</span>
+            </button>
+            <button class="discover-option" onclick="selectDiscoveryOption('style', this)" data-value="abstract">
+                <span>Abstract</span>
+            </button>
+            <button class="discover-option" onclick="selectDiscoveryOption('style', this)" data-value="photographic">
+                <span>Photographic</span>
+            </button>
+            <button class="discover-option" onclick="selectDiscoveryOption('style', this)" data-value="impressionist">
+                <span>Impressionist</span>
+            </button>
+            <button class="discover-option" onclick="selectDiscoveryOption('style', this)" data-value="minimalist">
+                <span>Minimalist</span>
+            </button>
+        </div>
+        <button class="discover-skip" onclick="advanceDiscoveryStep('style')">Skip</button>
+    </div>
+
+    <!-- Step 5: Results -->
+    <div class="discover-step" id="discover-step-results">
+        <h2 class="discover-question">Art Curated for <span class="gold">You</span></h2>
+        <div id="discover-prints-grid" class="prints-grid"></div>
+        <div id="discover-loading" class="browse-loading hidden">
+            <div class="spinner"><div class="spinner-frame"></div></div>
+            <span>Finding art for you...</span>
+        </div>
+        <div class="discover-results-actions">
+            <button class="btn-secondary" onclick="loadDiscoveryResults()">Show More</button>
+            <button class="btn-secondary" onclick="restartDiscovery()">Start Over</button>
+        </div>
+    </div>
+</section>
+
+<!-- Print Detail Modal -->
+<div id="print-detail-modal" class="print-detail-modal hidden" onclick="if(event.target===this)closePrintDetail()">
+    <div class="print-detail-panel">
+        <button class="print-detail-close" onclick="closePrintDetail()">&times;</button>
+        <div class="print-detail-image-wrap">
+            <img id="print-detail-image" alt="Art print" />
+        </div>
+        <div class="print-detail-info">
+            <h2 id="print-detail-title"></h2>
+            <p id="print-detail-artist" class="print-detail-artist"></p>
+            <div id="print-detail-badges" class="print-detail-badges"></div>
+            <p id="print-detail-desc" class="print-detail-desc"></p>
+            <div class="print-detail-colors" id="print-detail-colors"></div>
+            <div class="print-detail-actions">
+                <button class="btn-primary" onclick="frameThisPrint()">Frame This Print</button>
+                <button class="btn-secondary" onclick="moreLikeThis()">More Like This</button>
+                <button class="btn-secondary btn-dismiss" onclick="notLikeThis()">Not This</button>
+            </div>
+        </div>
+    </div>
+</div>

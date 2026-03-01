@@ -408,6 +408,8 @@
                 <span>|</span>
                 <span>Catalog Mouldings: <span class="stat-value" id="statCatMouldings">0</span></span>
                 <span>Catalog Mats: <span class="stat-value" id="statCatMats">0</span></span>
+                <span>|</span>
+                <span>Art Prints: <span class="stat-value" id="statArtPrints">0</span></span>
             </div>
         </div>
 
@@ -417,6 +419,7 @@
                 <button class="tab" onclick="showTab('guides')">Style Guides</button>
                 <button class="tab" onclick="showTab('examples')">Training Examples</button>
                 <button class="tab" onclick="showTab('catalog')">Vendor Catalog</button>
+                <button class="tab" onclick="showTab('artprints')">Art Prints</button>
             </div>
 
             <!-- === FRAMING RULES === -->
@@ -686,6 +689,101 @@
                 <div id="browseResults" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:1rem;"></div>
                 <div id="browsePagination" style="display:flex; justify-content:center; gap:0.5rem; margin-top:1.5rem;"></div>
             </div>
+
+            <!-- === ART PRINTS === -->
+            <div id="artprintsSection" class="section">
+                <!-- Import -->
+                <div class="add-form">
+                    <h3>Import Art Prints from SQL Server</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.85rem;">
+                        Imports art print vendors and prints from SQL Server ArtPrintVendor / ArtPrint tables.
+                        This replaces all existing art print data in the local database.
+                    </p>
+                    <div class="form-group">
+                        <label>SQL Server Connection String</label>
+                        <div id="apConnStrSaved" class="hidden" style="display:none; align-items:center; gap:0.75rem; margin-bottom:0.5rem;">
+                            <span style="color:var(--success); font-size:0.85rem;" id="apConnStrDisplay">Saved connection configured</span>
+                            <button class="btn btn-small" style="background:var(--bg-secondary); color:var(--text-secondary); border:1px solid var(--border);" onclick="document.getElementById('apConnStrSaved').style.display='none'; document.getElementById('apCatalogConnStr').style.display='';">Change</button>
+                        </div>
+                        <input type="text" id="apCatalogConnStr" placeholder="Server=myserver;Database=LifeSaverVendor;..." />
+                    </div>
+                    <button class="btn btn-primary" id="importArtPrintsBtn" onclick="importArtPrints()">Import Art Prints</button>
+                    <span id="apImportStatus" style="margin-left: 1rem; font-size: 0.85rem; color: var(--text-secondary);"></span>
+                </div>
+
+                <!-- Enrichment -->
+                <div class="add-form" style="margin-top: 1.5rem;">
+                    <h3>AI Art Print Enrichment</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.85rem;">
+                        Analyzes each art print image with AI to extract colors, mood, style, subject tags, and description.
+                        ~$0.003 per image with GPT-4o-mini.
+                    </p>
+                    <div id="apEnrichProgress" style="margin-bottom: 1rem;">
+                        <div style="display:flex; gap:2rem; font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.5rem;">
+                            <span>Art Prints: <span class="stat-value" id="apEnrichDone">0</span> / <span id="apEnrichTotal">0</span></span>
+                        </div>
+                        <div style="background:var(--bg-secondary); border-radius:4px; height:8px; overflow:hidden;">
+                            <div id="apEnrichBar" style="background:var(--accent); height:100%; width:0%; transition:width 0.3s;"></div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Batch Size</label>
+                            <input type="number" id="apEnrichBatchSize" value="25" min="1" max="200" />
+                        </div>
+                        <div class="form-group">
+                            <label>Vendor Filter (optional)</label>
+                            <input type="text" id="apEnrichVendorFilter" placeholder="e.g., Wild Apple" />
+                        </div>
+                        <div class="form-group" style="display:flex; align-items:flex-end;">
+                            <button class="btn btn-primary" id="apEnrichBtn" onclick="startArtPrintEnrichment()">Start Enrichment</button>
+                            <span id="apEnrichStatus" style="margin-left:1rem; font-size:0.85rem; color:var(--text-secondary);"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Browse Art Prints -->
+                <h3 style="color: var(--accent); margin: 1.5rem 0 1rem; font-family: 'Playfair Display', serif;">Browse Art Prints</h3>
+
+                <div style="margin-bottom: 1rem;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Search</label>
+                            <input type="text" id="apQuery" placeholder="Title, artist, keyword..." />
+                        </div>
+                        <div class="form-group">
+                            <label>Vendor</label>
+                            <input type="text" id="apVendor" placeholder="e.g., Wild Apple" />
+                        </div>
+                        <div class="form-group">
+                            <label>Artist</label>
+                            <input type="text" id="apArtist" placeholder="e.g., Jane Doe" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Genre</label>
+                            <input type="text" id="apGenre" placeholder="e.g., Landscape" />
+                        </div>
+                        <div class="form-group">
+                            <label>Style</label>
+                            <input type="text" id="apStyle" placeholder="e.g., Abstract" />
+                        </div>
+                        <div class="form-group">
+                            <label>Mood</label>
+                            <input type="text" id="apMood" placeholder="e.g., Serene" />
+                        </div>
+                        <div class="form-group" style="display:flex; align-items:flex-end; gap:0.5rem;">
+                            <button class="btn btn-primary" onclick="browseArtPrints(1)">Search</button>
+                            <button class="btn" style="background:var(--bg-secondary); color:var(--text-secondary); border:1px solid var(--border);" onclick="clearArtPrintBrowse()">Clear</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="apBrowseInfo" style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.75rem;"></div>
+                <div id="apBrowseResults" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:1rem;"></div>
+                <div id="apBrowsePagination" style="display:flex; justify-content:center; gap:0.5rem; margin-top:1.5rem;"></div>
+            </div>
         </div>
     </div>
 
@@ -742,7 +840,9 @@
         async function loadAll() {
             loadStats();
             loadCatalogStats();
+            loadArtPrintStats();
             checkCatalogConnection();
+            checkArtPrintConnection();
             loadEnrichmentStatus();
             loadRules();
             loadStyleGuides();
@@ -1007,6 +1107,7 @@
                 const data = await res.json();
                 document.getElementById('statCatMouldings').textContent = data.mouldings;
                 document.getElementById('statCatMats').textContent = data.mats;
+                document.getElementById('statArtPrints').textContent = data.artPrints;
             } catch {}
         }
 
@@ -1065,6 +1166,12 @@
                 const total = s.totalMouldings + s.totalMats;
                 const done = s.analyzedMouldings + s.analyzedMats;
                 document.getElementById('enrichBar').style.width = total > 0 ? ((done / total) * 100) + '%' : '0%';
+
+                // Art print enrichment
+                document.getElementById('apEnrichDone').textContent = s.analyzedArtPrints;
+                document.getElementById('apEnrichTotal').textContent = s.totalArtPrints;
+                document.getElementById('apEnrichBar').style.width = s.totalArtPrints > 0
+                    ? ((s.analyzedArtPrints / s.totalArtPrints) * 100) + '%' : '0%';
             } catch {}
         }
 
@@ -1491,6 +1598,173 @@
 
         // Hook: browseType change triggers combobox option update
         document.getElementById('browseType')?.addEventListener('change', updateBrowseComboboxOptions);
+
+        // === Art Prints ===
+        async function loadArtPrintStats() {
+            try {
+                const res = await fetch('/Training/ArtPrintStats');
+                const data = await res.json();
+                document.getElementById('statArtPrints').textContent = data.prints;
+            } catch {}
+        }
+
+        async function checkArtPrintConnection() {
+            try {
+                const res = await fetch('/Training/CatalogConnectionStatus');
+                const data = await res.json();
+                if (data.configured) {
+                    document.getElementById('apConnStrSaved').style.display = 'flex';
+                    document.getElementById('apConnStrDisplay').textContent = data.display || 'Saved connection configured';
+                    document.getElementById('apCatalogConnStr').style.display = 'none';
+                }
+            } catch {}
+        }
+
+        async function importArtPrints() {
+            const connStr = document.getElementById('apCatalogConnStr').value;
+            const btn = document.getElementById('importArtPrintsBtn');
+            const status = document.getElementById('apImportStatus');
+            btn.disabled = true;
+            btn.textContent = 'Importing...';
+            status.textContent = 'This may take a few minutes...';
+            status.style.color = 'var(--text-secondary)';
+
+            try {
+                const res = await fetch('/Training/ImportArtPrints', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ adminKey, sqlServerConnection: connStr })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showToast(`Imported ${result.artPrintVendorsImported} vendors, ${result.artPrintsImported} art prints`);
+                    status.textContent = `Last import: ${result.artPrintVendorsImported}V / ${result.artPrintsImported} prints`;
+                    loadArtPrintStats();
+                    loadCatalogStats();
+                    loadEnrichmentStatus();
+                } else {
+                    status.textContent = `Error: ${result.error}`;
+                    status.style.color = 'var(--danger)';
+                }
+            } catch (e) {
+                status.textContent = `Connection error: ${e.message}`;
+                status.style.color = 'var(--danger)';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Import Art Prints';
+            }
+        }
+
+        async function startArtPrintEnrichment() {
+            const btn = document.getElementById('apEnrichBtn');
+            const status = document.getElementById('apEnrichStatus');
+            btn.disabled = true;
+            btn.textContent = 'Enriching...';
+            status.textContent = 'Analyzing art print images with AI...';
+
+            try {
+                const res = await fetch('/Training/EnrichArtPrints', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        adminKey,
+                        batchSize: parseInt(document.getElementById('apEnrichBatchSize').value) || 25,
+                        vendorFilter: document.getElementById('apEnrichVendorFilter').value || null
+                    })
+                });
+                const result = await res.json();
+                showToast(`Enriched ${result.analyzed} prints (${result.skipped} skipped, ${result.remaining} remaining)`);
+                status.textContent = `Done: ${result.analyzed} analyzed, ${result.remaining} remaining`;
+                loadEnrichmentStatus();
+                loadArtPrintStats();
+            } catch (e) {
+                status.textContent = `Error: ${e.message}`;
+                status.style.color = 'var(--danger)';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Start Enrichment';
+            }
+        }
+
+        // === Browse Art Prints ===
+        async function browseArtPrints(page) {
+            const params = new URLSearchParams();
+            const q = document.getElementById('apQuery').value;
+            const vendor = document.getElementById('apVendor').value;
+            const artist = document.getElementById('apArtist').value;
+            const genre = document.getElementById('apGenre').value;
+            const style = document.getElementById('apStyle').value;
+            const mood = document.getElementById('apMood').value;
+
+            if (q) params.set('query', q);
+            if (vendor) params.set('vendor', vendor);
+            if (artist) params.set('artist', artist);
+            if (genre) params.set('genre', genre);
+            if (style) params.set('style', style);
+            if (mood) params.set('mood', mood);
+            params.set('page', page);
+            params.set('pageSize', 24);
+
+            try {
+                const res = await fetch(`/Training/BrowseArtPrints?${params}`);
+                const data = await res.json();
+
+                document.getElementById('apBrowseInfo').textContent =
+                    `Showing ${data.prints.length} of ${data.totalCount} prints (page ${data.page}/${data.totalPages})`;
+
+                const container = document.getElementById('apBrowseResults');
+                container.innerHTML = '';
+
+                for (const p of data.prints) {
+                    const card = document.createElement('div');
+                    card.className = 'catalog-card';
+                    card.style.cssText = 'background:var(--bg-card); border:1px solid var(--border); border-radius:8px; overflow:hidden; cursor:pointer;';
+
+                    const imgHtml = p.imageUrl
+                        ? `<div style="height:180px; overflow:hidden; background:var(--bg-secondary);"><img src="${p.imageUrl}" alt="${p.title}" style="width:100%; height:100%; object-fit:cover;" loading="lazy" onerror="this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-secondary);font-size:0.8rem;\\'>No Image</div>';" /></div>`
+                        : `<div style="height:180px; display:flex; align-items:center; justify-content:center; background:var(--bg-secondary); color:var(--text-secondary); font-size:0.8rem;">No Image</div>`;
+
+                    const colorsHtml = p.primaryColorHex
+                        ? `<div style="display:flex; gap:4px; margin-top:4px;">${[p.primaryColorHex, p.secondaryColorHex, p.tertiaryColorHex].filter(Boolean).map(c => `<span style="width:14px;height:14px;border-radius:50%;background:${c};border:1px solid var(--border);display:inline-block;" title="${c}"></span>`).join('')}</div>`
+                        : '';
+
+                    const moodBadge = p.aiMood ? `<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:0.7rem;background:var(--bg-secondary);color:var(--accent);border:1px solid var(--border);">${p.aiMood}</span>` : '';
+                    const styleBadge = p.aiStyle ? `<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:0.7rem;background:var(--bg-secondary);color:var(--text-secondary);border:1px solid var(--border);">${p.aiStyle}</span>` : '';
+
+                    card.innerHTML = `
+                        ${imgHtml}
+                        <div style="padding:0.75rem;">
+                            <div style="font-weight:500; font-size:0.85rem; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.title}</div>
+                            <div style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:4px;">${p.artist || 'Unknown Artist'} &middot; ${p.vendorName}</div>
+                            <div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center;">${moodBadge}${styleBadge}${colorsHtml}</div>
+                            ${p.genre ? `<div style="font-size:0.7rem; color:var(--text-secondary); margin-top:4px;">${p.genre}${p.orientation ? ' &middot; ' + p.orientation : ''}</div>` : ''}
+                        </div>`;
+
+                    container.appendChild(card);
+                }
+
+                // Pagination
+                const pagDiv = document.getElementById('apBrowsePagination');
+                let btns = '';
+                if (data.totalPages > 1) {
+                    if (data.page > 1) btns += `<button class="page-btn" onclick="browseArtPrints(${data.page - 1})">Prev</button>`;
+                    for (let i = Math.max(1, data.page - 2); i <= Math.min(data.totalPages, data.page + 2); i++) {
+                        btns += `<button class="page-btn ${i === data.page ? 'active' : ''}" onclick="browseArtPrints(${i})">${i}</button>`;
+                    }
+                    if (data.page < data.totalPages) btns += `<button class="page-btn" onclick="browseArtPrints(${data.page + 1})">Next</button>`;
+                }
+                pagDiv.innerHTML = btns;
+            } catch (e) {
+                document.getElementById('apBrowseInfo').textContent = `Error: ${e.message}`;
+            }
+        }
+
+        function clearArtPrintBrowse() {
+            ['apQuery','apVendor','apArtist','apGenre','apStyle','apMood'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('apBrowseResults').innerHTML = '';
+            document.getElementById('apBrowsePagination').innerHTML = '';
+            document.getElementById('apBrowseInfo').textContent = '';
+        }
 
         // Initialize voice input on page load
         initVoiceInput();
