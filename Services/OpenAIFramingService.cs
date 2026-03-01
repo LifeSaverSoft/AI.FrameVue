@@ -558,8 +558,9 @@ public class OpenAIFramingService
             $"Artwork analysis: {analysis.ArtStyle} ({analysis.Medium}), dominant colors: {colorList}, mood: {analysis.Mood}\n\n" +
             $"DESIGN: \"{displayName}\" — {style.Tier}\n\n" +
             $"{framingInstruction}\n\n" +
-            "Generate the artwork professionally matted and framed with these exact specifications, " +
-            "displayed on a clean neutral gallery wall. The framing must be proportional and realistic.\n\n" +
+            "Generate the artwork professionally matted and framed with these exact specifications. " +
+            "The background MUST be completely transparent (no wall, no background — just the framed art with mat). " +
+            "The framing must be proportional and realistic.\n\n" +
             "IMPORTANT: Your text response must be ONLY this JSON (no other text):\n" +
             $"{{\"styleName\":\"{displayName}\",\"moulding\":{{\"style\":\"<frame style>\",\"color\":\"<color/finish>\",\"width\":\"<approximate width>\",\"description\":\"<why this works>\"}},\"mat\":{{\"color\":\"<mat color>\",\"style\":\"<single or double mat>\",\"description\":\"<why this works>\"}}}}";
     }
@@ -919,6 +920,8 @@ public class OpenAIFramingService
                 new
                 {
                     type = "image_generation",
+                    background = "transparent",
+                    output_format = "png",
                     quality = _mockupQuality,
                     size = _mockupSize
                 }
