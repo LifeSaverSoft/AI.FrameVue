@@ -226,6 +226,101 @@ public class UserFramingContext
     public string? LightingCondition { get; set; }
 }
 
+// === Room Style Guides ===
+
+public class RoomStyleGuidesFile
+{
+    public List<RoomStyleGuide> RoomStyleGuides { get; set; } = new();
+}
+
+public class RoomStyleGuide
+{
+    public string RoomStyle { get; set; } = string.Empty;
+    public List<string> Keywords { get; set; } = new();
+    public List<string> RecommendedArtStyles { get; set; } = new();
+    public List<string> RecommendedGenres { get; set; } = new();
+    public List<string> AvoidArtStyles { get; set; } = new();
+    public string FramingGuidance { get; set; } = string.Empty;
+    public string ColorGuidance { get; set; } = string.Empty;
+    public string SizeGuidance { get; set; } = string.Empty;
+    public string Notes { get; set; } = string.Empty;
+}
+
+// === Room Analysis ===
+
+public class RoomAnalysis
+{
+    public string DesignStyle { get; set; } = string.Empty;
+    public string RoomType { get; set; } = string.Empty;
+    public string WallColor { get; set; } = string.Empty;
+    public string WallColorHex { get; set; } = string.Empty;
+    public List<string> RoomColors { get; set; } = new();
+    public string ColorTemperature { get; set; } = string.Empty;
+    public string LightingCondition { get; set; } = string.Empty;
+    public string ColorCastDetected { get; set; } = string.Empty;
+    public string EstimatedTrueWallColorHex { get; set; } = string.Empty;
+    public List<string> EstimatedTrueRoomColors { get; set; } = new();
+    public string FurnitureStyle { get; set; } = string.Empty;
+    public string Era { get; set; } = string.Empty;
+    public string Mood { get; set; } = string.Empty;
+    public string WallSpace { get; set; } = string.Empty;
+    public List<string> DecorElements { get; set; } = new();
+    public string FlooringType { get; set; } = string.Empty;
+    public List<RoomArtRecommendation> ArtRecommendations { get; set; } = new();
+    public List<RoomFramingRecommendation> FramingRecommendations { get; set; } = new();
+}
+
+public class RoomArtRecommendation
+{
+    public string Category { get; set; } = string.Empty;
+    public string ArtStyle { get; set; } = string.Empty;
+    public string Mood { get; set; } = string.Empty;
+    public List<string> Colors { get; set; } = new();
+    public string Genre { get; set; } = string.Empty;
+    public string SizeGuidance { get; set; } = string.Empty;
+    public string Reasoning { get; set; } = string.Empty;
+}
+
+public class RoomFramingRecommendation
+{
+    public string Tier { get; set; } = string.Empty;
+    public string MouldingStyle { get; set; } = string.Empty;
+    public string MouldingColor { get; set; } = string.Empty;
+    public string MouldingWidth { get; set; } = string.Empty;
+    public string MatColor { get; set; } = string.Empty;
+    public string MatStyle { get; set; } = string.Empty;
+    public string Reasoning { get; set; } = string.Empty;
+}
+
+// === Room Session (persistence) ===
+
+public class RoomSession
+{
+    public int Id { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string DesignStyle { get; set; } = string.Empty;
+    public string RoomType { get; set; } = string.Empty;
+    public string WallColor { get; set; } = string.Empty;
+    public string Mood { get; set; } = string.Empty;
+    public string RoomColorsJson { get; set; } = "[]";
+    public string ColorTemperature { get; set; } = string.Empty;
+    public string FurnitureStyle { get; set; } = string.Empty;
+    public string WallSpace { get; set; } = string.Empty;
+    public int RecommendedPrintCount { get; set; }
+    public string? UserHintRoomType { get; set; }
+    public string? UserHintWallColor { get; set; }
+    public string? UserHintDesignStyle { get; set; }
+}
+
+// === Room Analysis Request ===
+
+public class RoomAnalysisRequest
+{
+    public string? RoomType { get; set; }
+    public string? WallColor { get; set; }
+    public string? DesignStyle { get; set; }
+}
+
 // === Enhanced Analysis (richer dimensions) ===
 
 public class EnhancedImageAnalysis

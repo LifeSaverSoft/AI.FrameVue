@@ -377,4 +377,111 @@ public class HomeControllerTests : IClassFixture<TestWebApplicationFactory>
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
+
+    // =========================================================================
+    // Room Style Advisor
+    // =========================================================================
+
+    [Fact]
+    public async Task AnalyzeRoom_ValidImage_ReturnsAnalysisAndPrints()
+    {
+        using var content = new MultipartFormDataContent();
+        var imageContent = new ByteArrayContent(TinyPng);
+        imageContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        content.Add(imageContent, "image", "room.png");
+
+        var response = await _client.PostAsync("/Home/AnalyzeRoom", content);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+        Assert.True(doc.RootElement.TryGetProperty("analysis", out var analysis));
+        Assert.True(analysis.TryGetProperty("designStyle", out _), "Should have designStyle");
+        Assert.True(analysis.TryGetProperty("roomColors", out _), "Should have roomColors");
+        Assert.True(analysis.TryGetProperty("mood", out _), "Should have mood");
+        Assert.True(analysis.TryGetProperty("framingRecommendations", out var frameRecs), "Should have framingRecommendations");
+        Assert.True(frameRecs.GetArrayLength() >= 1, "Should have at least 1 framing rec");
+        Assert.True(analysis.TryGetProperty("artRecommendations", out var artRecs), "Should have artRecommendations");
+        Assert.True(artRecs.GetArrayLength() >= 1, "Should have at least 1 art rec");
+        Assert.True(doc.RootElement.TryGetProperty("matchedPrints", out var prints));
+        Assert.True(prints.GetArrayLength() >= 1, "Should return matched prints from catalog");
+    }
+
+    [Fact]
+    public async Task AnalyzeRoom_NoImage_ReturnsBadRequest()
+    {
+        using var content = new MultipartFormDataContent();
+
+        var response = await _client.PostAsync("/Home/AnalyzeRoom", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AnalyzeRoom_InvalidMimeType_ReturnsBadRequest()
+    {
+        using var content = new MultipartFormDataContent();
+        var textContent = new ByteArrayContent(Encoding.UTF8.GetBytes("not an image"));
+        textContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+        content.Add(textContent, "image", "test.txt");
+
+        var response = await _client.PostAsync("/Home/AnalyzeRoom", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AnalyzeRoom_WithHints_ReturnsAnalysis()
+    {
+        using var content = new MultipartFormDataContent();
+        var imageContent = new ByteArrayContent(TinyPng);
+        imageContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        content.Add(imageContent, "image", "room.png");
+        var hints = JsonSerializer.Serialize(new { roomType = "living room", wallColor = "white", designStyle = "modern" });
+        content.Add(new StringContent(hints), "roomHintsJson");
+
+        var response = await _client.PostAsync("/Home/AnalyzeRoom", content);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+        Assert.True(doc.RootElement.TryGetProperty("analysis", out _));
+    }
+
+    [Fact]
+    public async Task AnalyzeRoom_ReturnsColorNormalization()
+    {
+        using var content = new MultipartFormDataContent();
+        var imageContent = new ByteArrayContent(TinyPng);
+        imageContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        content.Add(imageContent, "image", "room.png");
+
+        var response = await _client.PostAsync("/Home/AnalyzeRoom", content);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+        var analysis = doc.RootElement.GetProperty("analysis");
+        Assert.True(analysis.TryGetProperty("lightingCondition", out _), "Should have lightingCondition");
+        Assert.True(analysis.TryGetProperty("colorCastDetected", out _), "Should have colorCastDetected");
+        Assert.True(analysis.TryGetProperty("estimatedTrueRoomColors", out _), "Should have estimatedTrueRoomColors");
+        Assert.True(analysis.TryGetProperty("estimatedTrueWallColorHex", out _), "Should have estimatedTrueWallColorHex");
+    }
+
+    [Fact]
+    public async Task AnalyzeRoom_FramingRecsHaveTiers()
+    {
+        using var content = new MultipartFormDataContent();
+        var imageContent = new ByteArrayContent(TinyPng);
+        imageContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        content.Add(imageContent, "image", "room.png");
+
+        var response = await _client.PostAsync("/Home/AnalyzeRoom", content);
+
+        var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+        var recs = doc.RootElement.GetProperty("analysis").GetProperty("framingRecommendations");
+        foreach (var rec in recs.EnumerateArray())
+        {
+            Assert.True(rec.TryGetProperty("tier", out _), "Each rec should have tier");
+            Assert.True(rec.TryGetProperty("mouldingStyle", out _), "Each rec should have mouldingStyle");
+            Assert.True(rec.TryGetProperty("matColor", out _), "Each rec should have matColor");
+        }
+    }
 }

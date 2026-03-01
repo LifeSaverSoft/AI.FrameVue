@@ -43,10 +43,18 @@
     var discoveryExcludeIds = [];
     var currentPrintDetail = null;
 
+    // Room Style Advisor state
+    var roomSection = document.getElementById('room-section');
+    var roomLoadingSection = document.getElementById('room-loading-section');
+    var roomResultsSection = document.getElementById('room-results-section');
+    var roomAnalysis = null;
+    var roomFile = null;
+
     // === Section visibility ===
 
     function showSection(section) {
-        [uploadSection, loadingSection, resultsSection, errorSection, browseSection, discoverSection]
+        [uploadSection, loadingSection, resultsSection, errorSection, browseSection, discoverSection,
+         roomSection, roomLoadingSection, roomResultsSection]
             .filter(Boolean)
             .forEach(s => s.classList.add('hidden'));
         if (section) section.classList.remove('hidden');
@@ -1679,6 +1687,8 @@
             showSection(discoverSection);
             initDiscoveryColorPalette();
             restartDiscovery();
+        } else if (mode === 'room') {
+            showSection(roomSection);
         }
     };
 
@@ -1999,7 +2009,7 @@
     // DISCOVERY WIZARD
     // =========================================================================
 
-    var discoverySteps = ['room', 'mood', 'colors', 'style', 'results'];
+    var discoverySteps = ['room-photo', 'room', 'mood', 'colors', 'style', 'results'];
 
     function initDiscoveryColorPalette() {
         var palette = document.getElementById('discover-color-palette');
@@ -2094,14 +2104,17 @@
             var el = document.getElementById('discover-step-' + step);
             if (el) el.classList.remove('active');
         });
-        document.getElementById('discover-step-room')?.classList.add('active');
+        document.getElementById('discover-step-room-photo')?.classList.add('active');
 
         // Reset selected states
         document.querySelectorAll('.discover-option.selected').forEach(b => b.classList.remove('selected'));
         document.querySelectorAll('.discover-color-swatch.selected').forEach(s => s.classList.remove('selected'));
+        document.querySelectorAll('.discover-option.ai-prefilled').forEach(b => b.classList.remove('ai-prefilled'));
         document.getElementById('discover-prints-grid').innerHTML = '';
         var nextBtn = document.getElementById('colors-next-btn');
         if (nextBtn) nextBtn.style.display = 'none';
+        var analyzingEl = document.getElementById('discover-room-analyzing');
+        if (analyzingEl) analyzingEl.classList.add('hidden');
     };
 
     // =========================================================================
@@ -2229,6 +2242,285 @@
         if (!currentPrintDetail) return;
         discoveryExcludeIds.push(currentPrintDetail.id);
         closePrintDetail();
+    };
+
+    // =========================================================================
+    // ROOM STYLE ADVISOR
+    // =========================================================================
+
+    var roomDropZone = document.getElementById('room-drop-zone');
+    var roomFileInput = document.getElementById('room-file-input');
+
+    if (roomDropZone && roomFileInput) {
+        roomDropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            roomDropZone.classList.add('drag-over');
+        });
+        roomDropZone.addEventListener('dragleave', function() {
+            roomDropZone.classList.remove('drag-over');
+        });
+        roomDropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            roomDropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) handleRoomFile(e.dataTransfer.files[0]);
+        });
+        roomDropZone.addEventListener('click', function() { roomFileInput.click(); });
+        roomFileInput.addEventListener('change', function() {
+            if (roomFileInput.files.length > 0) handleRoomFile(roomFileInput.files[0]);
+        });
+    }
+
+    function handleRoomFile(file) {
+        if (!file.type.startsWith('image/')) {
+            errorMessage.textContent = 'Please upload an image file (JPG, PNG, or WebP).';
+            showSection(errorSection);
+            return;
+        }
+        if (file.size > 20 * 1024 * 1024) {
+            errorMessage.textContent = 'Image is too large. Maximum size is 20 MB.';
+            showSection(errorSection);
+            return;
+        }
+        roomFile = file;
+        showSection(roomLoadingSection);
+        analyzeRoom(file);
+    }
+
+    function getRoomHints() {
+        var hints = {};
+        var typeEl = document.getElementById('room-hint-type');
+        var wallEl = document.getElementById('room-hint-wall');
+        var styleEl = document.getElementById('room-hint-style');
+        if (typeEl && typeEl.value) hints.roomType = typeEl.value;
+        if (wallEl && wallEl.value) hints.wallColor = wallEl.value;
+        if (styleEl && styleEl.value) hints.designStyle = styleEl.value;
+        return Object.keys(hints).length > 0 ? hints : null;
+    }
+
+    function analyzeRoom(file) {
+        var formData = new FormData();
+        formData.append('image', file);
+        var hints = getRoomHints();
+        if (hints) formData.append('roomHintsJson', JSON.stringify(hints));
+
+        var stepEl = document.getElementById('room-loading-step');
+        if (stepEl) stepEl.textContent = 'Detecting design style and color palette...';
+
+        fetch('/Home/AnalyzeRoom', { method: 'POST', body: formData })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) {
+                errorMessage.textContent = data.error;
+                showSection(errorSection);
+                return;
+            }
+            roomAnalysis = data;
+            renderRoomResults(data);
+            showSection(roomResultsSection);
+        })
+        .catch(function() {
+            errorMessage.textContent = 'Failed to analyze the room photo.';
+            showSection(errorSection);
+        });
+    }
+
+    function renderRoomResults(data) {
+        renderRoomSummary(data.analysis);
+        renderRoomFraming(data.analysis.framingRecommendations || []);
+        var grid = document.getElementById('room-prints-grid');
+        var noEl = document.getElementById('room-no-prints');
+        grid.innerHTML = '';
+        if (data.matchedPrints && data.matchedPrints.length > 0) {
+            if (noEl) noEl.classList.add('hidden');
+            renderPrintCards(data.matchedPrints, true, 'room-prints-grid');
+        } else {
+            if (noEl) noEl.classList.remove('hidden');
+        }
+    }
+
+    function renderRoomSummary(analysis) {
+        var el = document.getElementById('room-analysis-summary');
+        if (!el) return;
+
+        var colorDots = (analysis.roomColors || []).map(function(hex) {
+            return '<span class="room-color-dot" style="background:' + hex + ';" title="' + hex + '"></span>';
+        }).join('');
+
+        var trueColorDots = '';
+        var hasCast = analysis.colorCastDetected && analysis.colorCastDetected !== 'none';
+        if (hasCast && analysis.estimatedTrueRoomColors && analysis.estimatedTrueRoomColors.length > 0) {
+            trueColorDots = (analysis.estimatedTrueRoomColors || []).map(function(hex) {
+                return '<span class="room-color-dot" style="background:' + hex + ';" title="' + hex + '"></span>';
+            }).join('');
+        }
+
+        var decorList = (analysis.decorElements || []).map(function(d) { return esc(d); }).join(', ');
+
+        var html = '<div class="room-summary-grid">';
+        html += '<div class="room-summary-item"><label>Design Style</label><span class="room-badge">' + esc(analysis.designStyle || '') + '</span></div>';
+        html += '<div class="room-summary-item"><label>Room</label><span>' + esc(analysis.roomType || '') + '</span></div>';
+        html += '<div class="room-summary-item"><label>Mood</label><span>' + esc(analysis.mood || '') + '</span></div>';
+        html += '<div class="room-summary-item"><label>Wall Color</label>';
+        html += '<span class="room-color-chip" style="background:' + (analysis.wallColorHex || '#ccc') + ';"></span> ' + esc(analysis.wallColor || '');
+        if (hasCast) html += ' <small class="room-cast-note">(' + esc(analysis.colorCastDetected) + ')</small>';
+        html += '</div>';
+        html += '<div class="room-summary-item"><label>Room Colors</label><div class="room-color-row">' + colorDots + '</div></div>';
+        if (trueColorDots) {
+            html += '<div class="room-summary-item"><label>True Colors (D50)</label><div class="room-color-row">' + trueColorDots + '</div></div>';
+        }
+        html += '<div class="room-summary-item"><label>Furniture</label><span>' + esc(analysis.furnitureStyle || '') + '</span></div>';
+        html += '<div class="room-summary-item"><label>Wall Space</label><span>' + esc(analysis.wallSpace || '') + '</span></div>';
+        html += '<div class="room-summary-item"><label>Lighting</label><span>' + esc(analysis.lightingCondition || '') + '</span></div>';
+        html += '<div class="room-summary-item"><label>Temperature</label><span>' + esc(analysis.colorTemperature || '') + '</span></div>';
+        if (decorList) html += '<div class="room-summary-item room-summary-wide"><label>Decor</label><span>' + decorList + '</span></div>';
+        html += '</div>';
+
+        // Art recommendations
+        if (analysis.artRecommendations && analysis.artRecommendations.length > 0) {
+            html += '<div class="room-art-recs"><h4>AI Art Suggestions</h4><div class="room-art-recs-grid">';
+            analysis.artRecommendations.forEach(function(rec) {
+                var recColors = (rec.colors || []).map(function(hex) {
+                    return '<span class="room-color-dot-sm" style="background:' + hex + ';"></span>';
+                }).join('');
+                html += '<div class="room-art-rec-card">';
+                html += '<div class="room-art-rec-category">' + esc(rec.category || '') + '</div>';
+                html += '<div class="room-art-rec-detail"><strong>Style:</strong> ' + esc(rec.artStyle || '') + '</div>';
+                html += '<div class="room-art-rec-detail"><strong>Genre:</strong> ' + esc(rec.genre || '') + '</div>';
+                html += '<div class="room-art-rec-detail"><strong>Mood:</strong> ' + esc(rec.mood || '') + '</div>';
+                html += '<div class="room-art-rec-detail"><strong>Size:</strong> ' + esc(rec.sizeGuidance || '') + '</div>';
+                if (recColors) html += '<div class="room-art-rec-colors">' + recColors + '</div>';
+                html += '<div class="room-art-rec-reasoning">' + esc(rec.reasoning || '') + '</div>';
+                html += '</div>';
+            });
+            html += '</div></div>';
+        }
+
+        el.innerHTML = html;
+    }
+
+    function renderRoomFraming(recs) {
+        var grid = document.getElementById('room-framing-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+        recs.forEach(function(rec) {
+            var card = document.createElement('div');
+            card.className = 'room-framing-card';
+            card.innerHTML =
+                '<div class="room-framing-tier">' + esc(rec.tier || '') + '</div>' +
+                '<div class="room-framing-detail"><strong>Moulding:</strong> ' + esc(rec.mouldingStyle || '') + ' in ' + esc(rec.mouldingColor || '') + ', ' + esc(rec.mouldingWidth || '') + '</div>' +
+                '<div class="room-framing-detail"><strong>Mat:</strong> ' + esc(rec.matStyle || '') + ' in ' + esc(rec.matColor || '') + '</div>' +
+                '<div class="room-framing-reasoning">' + esc(rec.reasoning || '') + '</div>';
+            grid.appendChild(card);
+        });
+    }
+
+    window.resetRoomAdvisor = function() {
+        roomAnalysis = null;
+        roomFile = null;
+        if (roomFileInput) roomFileInput.value = '';
+        showSection(roomSection);
+    };
+
+    // =========================================================================
+    // DISCOVERY WIZARD — Room Photo Shortcut
+    // =========================================================================
+
+    var discoverRoomFile = document.getElementById('discover-room-file');
+    if (discoverRoomFile) {
+        discoverRoomFile.addEventListener('change', function() {
+            if (discoverRoomFile.files.length > 0) {
+                handleDiscoverRoomPhoto(discoverRoomFile.files[0]);
+            }
+        });
+    }
+
+    function handleDiscoverRoomPhoto(file) {
+        if (!file.type.startsWith('image/') || file.size > 20 * 1024 * 1024) {
+            return;
+        }
+
+        var analyzingEl = document.getElementById('discover-room-analyzing');
+        if (analyzingEl) analyzingEl.classList.remove('hidden');
+
+        var formData = new FormData();
+        formData.append('image', file);
+
+        fetch('/Home/AnalyzeRoom', { method: 'POST', body: formData })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error || !data.analysis) {
+                // Fall back to manual
+                skipDiscoverRoomPhoto();
+                return;
+            }
+            var a = data.analysis;
+
+            // Map room analysis to discovery selections
+            discoverySelections.room = a.roomType || null;
+            discoverySelections.mood = a.mood || null;
+            discoverySelections.style = a.designStyle || null;
+
+            // Take top 3 colors from room
+            var colors = (a.estimatedTrueRoomColors && a.estimatedTrueRoomColors.length > 0)
+                ? a.estimatedTrueRoomColors : (a.roomColors || []);
+            discoverySelections.colors = colors.slice(0, 3);
+
+            // Pre-select UI elements with AI-detected badge
+            prefillDiscoveryFromRoom();
+
+            // Jump to results
+            if (analyzingEl) analyzingEl.classList.add('hidden');
+            loadDiscoveryResults();
+
+            // Show results step
+            discoverySteps.forEach(function(step) {
+                var el = document.getElementById('discover-step-' + step);
+                if (el) el.classList.remove('active');
+            });
+            document.getElementById('discover-step-results')?.classList.add('active');
+        })
+        .catch(function() {
+            if (analyzingEl) analyzingEl.classList.add('hidden');
+            skipDiscoverRoomPhoto();
+        });
+    }
+
+    function prefillDiscoveryFromRoom() {
+        // Highlight matching room button
+        if (discoverySelections.room) {
+            document.querySelectorAll('#discover-step-room .discover-option').forEach(function(btn) {
+                if (btn.dataset.value === discoverySelections.room) {
+                    btn.classList.add('selected', 'ai-prefilled');
+                }
+            });
+        }
+        // Highlight matching mood button
+        if (discoverySelections.mood) {
+            document.querySelectorAll('#discover-step-mood .discover-option').forEach(function(btn) {
+                if (btn.dataset.value === discoverySelections.mood) {
+                    btn.classList.add('selected', 'ai-prefilled');
+                }
+            });
+        }
+        // Highlight matching style button
+        if (discoverySelections.style) {
+            document.querySelectorAll('#discover-step-style .discover-option').forEach(function(btn) {
+                if (btn.dataset.value === discoverySelections.style) {
+                    btn.classList.add('selected', 'ai-prefilled');
+                }
+            });
+        }
+    }
+
+    window.skipDiscoverRoomPhoto = function() {
+        var analyzingEl = document.getElementById('discover-room-analyzing');
+        if (analyzingEl) analyzingEl.classList.add('hidden');
+        // Move to manual room step
+        discoverySteps.forEach(function(step) {
+            var el = document.getElementById('discover-step-' + step);
+            if (el) el.classList.remove('active');
+        });
+        document.getElementById('discover-step-room')?.classList.add('active');
     };
 
 })();

@@ -1,0 +1,92 @@
+{
+    "roomStyleGuides": [
+        {
+            "roomStyle": "modern",
+            "keywords": ["modern", "contemporary", "sleek", "clean-line"],
+            "recommendedArtStyles": ["abstract", "minimalist", "photography", "geometric"],
+            "recommendedGenres": ["Abstract", "Photography", "Geometric"],
+            "avoidArtStyles": ["ornate classical", "folk-rustic"],
+            "framingGuidance": "Slim profiles in matte black, brushed silver, or natural wood. Float frames for canvas. Single mat or no mat.",
+            "colorGuidance": "Monochromatic or analogous palettes. Bold accent colors work as statement pieces.",
+            "sizeGuidance": "Large single pieces or triptychs. Avoid cluttered gallery walls.",
+            "notes": "Modern rooms pair best with bold single art statements. Frame should not compete with the art."
+        },
+        {
+            "roomStyle": "traditional",
+            "keywords": ["traditional", "classic", "elegant", "formal"],
+            "recommendedArtStyles": ["oil-painting-classical", "impressionist", "realist", "portrait"],
+            "recommendedGenres": ["Landscape", "Portrait", "Still Life", "Floral"],
+            "avoidArtStyles": ["pop-art", "graffiti", "street-art"],
+            "framingGuidance": "Ornate or stepped profiles in gold, espresso, or walnut. Double mats with accent reveal.",
+            "colorGuidance": "Rich, warm palettes. Complement existing wood tones. Gold and bronze accents.",
+            "sizeGuidance": "Medium to large pieces with generous mat proportions.",
+            "notes": "Traditional rooms benefit from museum-style framing with wider mats and ornate mouldings."
+        },
+        {
+            "roomStyle": "farmhouse",
+            "keywords": ["farmhouse", "rustic", "country", "cottage"],
+            "recommendedArtStyles": ["watercolor", "folk-rustic", "botanical", "pastoral"],
+            "recommendedGenres": ["Landscape", "Floral", "Botanical", "Coastal"],
+            "avoidArtStyles": ["abstract-modern", "pop-art", "geometric"],
+            "framingGuidance": "Reclaimed wood look, whitewashed, or distressed finishes. Simple profiles. Barn wood frames.",
+            "colorGuidance": "Soft, muted tones. Sage green, warm white, linen, soft blue, natural wood.",
+            "sizeGuidance": "Small to medium pieces, gallery wall groupings work well.",
+            "notes": "Pair with natural materials for authenticity. Weathered and distressed finishes add character."
+        },
+        {
+            "roomStyle": "mid-century",
+            "keywords": ["mid-century", "retro", "1960s", "atomic", "mcm"],
+            "recommendedArtStyles": ["abstract-modern", "pop-art", "geometric", "photography"],
+            "recommendedGenres": ["Abstract", "Geometric", "Photography"],
+            "avoidArtStyles": ["ornate classical", "baroque", "heavy traditional"],
+            "framingGuidance": "Thin profiles in walnut, teak, or brass. Simple clean lines. No ornate detail.",
+            "colorGuidance": "Warm earth tones, mustard, teal, burnt orange. Pop-color accents work well.",
+            "sizeGuidance": "Medium statement pieces at eye level. Horizontal orientation preferred.",
+            "notes": "Wood tones should echo the room's furniture wood. Brass or gold thin frames complement well."
+        },
+        {
+            "roomStyle": "minimalist",
+            "keywords": ["minimalist", "scandinavian", "zen", "nordic"],
+            "recommendedArtStyles": ["minimalist", "photography", "line-art", "abstract"],
+            "recommendedGenres": ["Abstract", "Photography", "Landscape"],
+            "avoidArtStyles": ["ornate classical", "maximalist", "folk-rustic", "busy patterns"],
+            "framingGuidance": "Ultra-thin frames or floating frames in white, light wood, or black. Clean edges.",
+            "colorGuidance": "Muted, monochromatic. Black and white photography ideal. Soft pastels as accent.",
+            "sizeGuidance": "One large statement piece. Never overcrowd. White space is essential.",
+            "notes": "Less is more. White space around the art is as important as the art itself."
+        },
+        {
+            "roomStyle": "industrial",
+            "keywords": ["industrial", "loft", "urban", "warehouse"],
+            "recommendedArtStyles": ["photography", "abstract-modern", "mixed-media", "urban"],
+            "recommendedGenres": ["Abstract", "Photography", "Architectural"],
+            "avoidArtStyles": ["delicate watercolor", "folk-rustic", "pastoral", "dainty floral"],
+            "framingGuidance": "Raw metal, black steel, reclaimed wood. Wide profiles for impact. Shadow box frames.",
+            "colorGuidance": "Dark tones, metallics, concrete grays. Pops of bold color as accent.",
+            "sizeGuidance": "Oversized pieces or bold gallery walls with mixed frame sizes and styles.",
+            "notes": "Art should hold its own against exposed brick, metal, and concrete. Bold and graphic works best."
+        },
+        {
+            "roomStyle": "coastal",
+            "keywords": ["coastal", "beach", "nautical", "seaside", "tropical"],
+            "recommendedArtStyles": ["watercolor", "photography", "impressionist", "abstract"],
+            "recommendedGenres": ["Coastal", "Landscape", "Abstract", "Floral"],
+            "avoidArtStyles": ["dark dramatic", "industrial", "heavy ornate", "gothic"],
+            "framingGuidance": "White or light wood frames. Whitewashed or driftwood finishes. Simple profiles.",
+            "colorGuidance": "Blues, sandy tones, seafoam, coral, white. Ocean-inspired palette.",
+            "sizeGuidance": "Medium pieces or relaxed groupings. Horizontal orientation for seascapes.",
+            "notes": "Art should evoke calm and openness. Light and airy framing to complement coastal vibe."
+        },
+        {
+            "roomStyle": "bohemian",
+            "keywords": ["bohemian", "boho", "eclectic", "global", "artistic"],
+            "recommendedArtStyles": ["mixed-media", "folk-rustic", "watercolor", "textile-art", "abstract"],
+            "recommendedGenres": ["Abstract", "Botanical", "Figure", "Cultural", "Floral"],
+            "avoidArtStyles": ["clinical minimalist", "corporate", "sterile modern"],
+            "framingGuidance": "Eclectic mix of frame styles. Gold, warm wood, painted frames. Mix widths and finishes.",
+            "colorGuidance": "Rich warm tones, jewel tones, earth tones. Layered color. Turquoise, amber, burgundy.",
+            "sizeGuidance": "Gallery walls with varied sizes. Layered and organic arrangement.",
+            "notes": "Embrace variety. Mix framed and unframed, different media. More is more in bohemian style."
+        }
+    ]
+}

@@ -20,6 +20,9 @@ public class AppDbContext : DbContext
     public DbSet<CatalogArtPrintVendor> ArtPrintVendors => Set<CatalogArtPrintVendor>();
     public DbSet<CatalogArtPrint> ArtPrints => Set<CatalogArtPrint>();
 
+    // Room analysis sessions
+    public DbSet<RoomSession> RoomSessions => Set<RoomSession>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<DesignSession>(entity =>
@@ -95,6 +98,13 @@ public class AppDbContext : DbContext
             entity.HasIndex(e => e.AiMood);
             entity.HasIndex(e => e.AiStyle);
             entity.HasIndex(e => e.ColorTemperature);
+        });
+
+        // Room analysis sessions
+        modelBuilder.Entity<RoomSession>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
         });
     }
 }

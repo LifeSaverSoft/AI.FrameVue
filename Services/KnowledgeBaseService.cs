@@ -18,6 +18,7 @@ public class KnowledgeBaseService
     private TrainingExamplesFile _trainingExamples = new();
     private ColorTheoryFile _colorTheory = new();
     private VendorCatalogFile _vendorCatalog = new();
+    private RoomStyleGuidesFile _roomStyleGuides = new();
 
     private FileSystemWatcher? _watcher;
 
@@ -51,13 +52,15 @@ public class KnowledgeBaseService
         _trainingExamples = LoadFile<TrainingExamplesFile>("training-examples.json") ?? new();
         _colorTheory = LoadFile<ColorTheoryFile>("color-theory.json") ?? new();
         _vendorCatalog = LoadFile<VendorCatalogFile>("vendor-catalog.json") ?? new();
+        _roomStyleGuides = LoadFile<RoomStyleGuidesFile>("room-style-guides.json") ?? new();
 
         _logger.LogInformation(
-            "Knowledge base loaded: {Rules} rules, {Guides} style guides, {Examples} examples, {Vendors} vendors",
+            "Knowledge base loaded: {Rules} rules, {Guides} style guides, {Examples} examples, {Vendors} vendors, {RoomGuides} room style guides",
             _framingRules.Rules.Count,
             _styleGuides.StyleGuides.Count,
             _trainingExamples.Examples.Count,
-            _vendorCatalog.Vendors.Count);
+            _vendorCatalog.Vendors.Count,
+            _roomStyleGuides.RoomStyleGuides.Count);
     }
 
     private T? LoadFile<T>(string filename) where T : class
@@ -520,6 +523,74 @@ public class KnowledgeBaseService
         var examples = GetExamplesAsText(artStyle, medium, mood);
         if (!string.IsNullOrEmpty(examples))
             sections.Add($"[REFERENCE EXAMPLES FROM EXPERT FRAMERS]\n{examples}");
+
+        return string.Join("\n\n", sections);
+    }
+
+    // === Room Style Guide Methods ===
+
+    /// <summary>
+    /// Find the best matching room style guide for the detected design style.
+    /// </summary>
+    public RoomStyleGuide? GetRoomStyleGuide(string designStyle)
+    {
+        if (string.IsNullOrEmpty(designStyle)) return null;
+
+        var styleLower = designStyle.ToLowerInvariant();
+
+        // Try exact match
+        var guide = _roomStyleGuides.RoomStyleGuides.FirstOrDefault(g =>
+            g.RoomStyle.Equals(styleLower, StringComparison.OrdinalIgnoreCase));
+
+        if (guide != null) return guide;
+
+        // Try keyword match
+        guide = _roomStyleGuides.RoomStyleGuides.FirstOrDefault(g =>
+            g.Keywords.Any(k => styleLower.Contains(k, StringComparison.OrdinalIgnoreCase) ||
+                                k.Contains(styleLower, StringComparison.OrdinalIgnoreCase)));
+
+        return guide;
+    }
+
+    /// <summary>
+    /// Get room style guide formatted as text for prompt injection.
+    /// </summary>
+    public string GetRoomStyleGuideAsText(string designStyle)
+    {
+        var guide = GetRoomStyleGuide(designStyle);
+        if (guide == null) return "";
+
+        return $"ROOM STYLE GUIDE for \"{guide.RoomStyle}\":\n" +
+               $"  Recommended art styles: {string.Join(", ", guide.RecommendedArtStyles)}\n" +
+               $"  Recommended genres: {string.Join(", ", guide.RecommendedGenres)}\n" +
+               $"  Avoid: {string.Join(", ", guide.AvoidArtStyles)}\n" +
+               $"  Framing guidance: {guide.FramingGuidance}\n" +
+               $"  Color guidance: {guide.ColorGuidance}\n" +
+               $"  Size guidance: {guide.SizeGuidance}\n" +
+               $"  Notes: {guide.Notes}";
+    }
+
+    /// <summary>
+    /// Build knowledge injection specifically for room analysis Pass 2.
+    /// </summary>
+    public string BuildRoomKnowledgeInjection(string designStyle, string mood, string colorTemperature)
+    {
+        var sections = new List<string>();
+
+        // 1. Room-specific style guide
+        var roomGuide = GetRoomStyleGuideAsText(designStyle);
+        if (!string.IsNullOrEmpty(roomGuide))
+            sections.Add($"[{roomGuide}]");
+
+        // 2. Expert framing rules (still relevant for room-based framing)
+        var rules = GetRulesAsText();
+        if (!string.IsNullOrEmpty(rules))
+            sections.Add($"[EXPERT FRAMING RULES]\n{rules}");
+
+        // 3. Color theory (using room temperature)
+        var colorTheory = GetColorTheoryAsText(colorTemperature);
+        if (!string.IsNullOrEmpty(colorTheory))
+            sections.Add($"[{colorTheory}]");
 
         return string.Join("\n\n", sections);
     }

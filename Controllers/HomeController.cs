@@ -459,6 +459,179 @@ public class HomeController : Controller
     }
 
     // =========================================================================
+    // Room Style Advisor
+    // =========================================================================
+
+    /// <summary>
+    /// Analyze a room photo: detect style/colors/mood, recommend art + framing.
+    /// </summary>
+    [HttpPost]
+    [RequestSizeLimit(20 * 1024 * 1024)]
+    public async Task<IActionResult> AnalyzeRoom(IFormFile image, string? roomHintsJson)
+    {
+        if (image == null || image.Length == 0)
+            return BadRequest(new { error = "No image was uploaded." });
+
+        if (!image.ContentType.StartsWith("image/"))
+            return BadRequest(new { error = "The uploaded file is not a valid image." });
+
+        // Parse optional room hints
+        RoomAnalysisRequest? hints = null;
+        if (!string.IsNullOrEmpty(roomHintsJson))
+        {
+            try
+            {
+                hints = JsonSerializer.Deserialize<RoomAnalysisRequest>(roomHintsJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+            catch
+            {
+                _logger.LogWarning("Could not parse room hints JSON");
+            }
+        }
+
+        using var ms = new MemoryStream();
+        await image.CopyToAsync(ms);
+        var imageData = ms.ToArray();
+
+        try
+        {
+            var analysis = await _framingService.AnalyzeRoomAsync(imageData, image.ContentType, hints);
+
+            // Score art prints against room analysis
+            var allPrints = await _db.ArtPrints.Where(p => p.IsActive).ToListAsync();
+            var matchedPrints = ScoreArtPrintsForRoom(allPrints, analysis);
+
+            // Save room session
+            try
+            {
+                var session = new RoomSession
+                {
+                    DesignStyle = analysis.DesignStyle,
+                    RoomType = analysis.RoomType,
+                    WallColor = analysis.WallColor,
+                    Mood = analysis.Mood,
+                    RoomColorsJson = JsonSerializer.Serialize(analysis.RoomColors),
+                    ColorTemperature = analysis.ColorTemperature,
+                    FurnitureStyle = analysis.FurnitureStyle,
+                    WallSpace = analysis.WallSpace,
+                    RecommendedPrintCount = matchedPrints.Count,
+                    UserHintRoomType = hints?.RoomType,
+                    UserHintWallColor = hints?.WallColor,
+                    UserHintDesignStyle = hints?.DesignStyle
+                };
+                _db.RoomSessions.Add(session);
+                await _db.SaveChangesAsync();
+                _logger.LogInformation("Saved room session {Id}", session.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to save room session (non-critical)");
+            }
+
+            return Json(new { analysis, matchedPrints });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to analyze room");
+            return StatusCode(500, new { error = "Failed to analyze the room." });
+        }
+    }
+
+    /// <summary>
+    /// Score art prints against room analysis using weighted multi-criteria matching.
+    /// </summary>
+    private List<CatalogArtPrint> ScoreArtPrintsForRoom(List<CatalogArtPrint> candidates, RoomAnalysis analysis)
+    {
+        // Collect recommended styles, moods, genres from AI art recommendations
+        var recStyles = analysis.ArtRecommendations.Select(r => r.ArtStyle.ToLowerInvariant()).ToHashSet();
+        var recMoods = analysis.ArtRecommendations.Select(r => r.Mood.ToLowerInvariant()).ToHashSet();
+        var recGenres = analysis.ArtRecommendations.Select(r => r.Genre.ToLowerInvariant()).ToHashSet();
+
+        // Use normalized colors when available
+        var roomColors = analysis.EstimatedTrueRoomColors.Count > 0
+            ? analysis.EstimatedTrueRoomColors
+            : analysis.RoomColors;
+
+        var scored = candidates.Select(p =>
+        {
+            double score = 0;
+
+            // Color harmony (4x weight) — similar AND complementary
+            if (!string.IsNullOrEmpty(p.PrimaryColorHex) && roomColors.Count > 0)
+            {
+                foreach (var roomColor in roomColors)
+                {
+                    var dist = ColorDistance(p.PrimaryColorHex, roomColor);
+                    // Similar colors score high
+                    score += 4.0 / (1.0 + dist);
+                    // Complementary colors (distance ~200-300) get a bonus
+                    if (dist >= 180 && dist <= 320) score += 1.5;
+
+                    if (!string.IsNullOrEmpty(p.SecondaryColorHex))
+                    {
+                        var dist2 = ColorDistance(p.SecondaryColorHex, roomColor);
+                        score += 2.0 / (1.0 + dist2);
+                    }
+                }
+            }
+
+            // Mood match (3x)
+            if (!string.IsNullOrEmpty(p.AiMood))
+            {
+                var printMood = p.AiMood.ToLowerInvariant();
+                if (recMoods.Contains(printMood)) score += 3;
+                if (printMood.Equals(analysis.Mood, StringComparison.OrdinalIgnoreCase)) score += 2;
+            }
+
+            // Style match (3x)
+            if (!string.IsNullOrEmpty(p.AiStyle))
+            {
+                var printStyle = p.AiStyle.ToLowerInvariant();
+                if (recStyles.Contains(printStyle)) score += 3;
+            }
+
+            // Genre match (2x)
+            if (!string.IsNullOrEmpty(p.Genre))
+            {
+                var printGenre = p.Genre.ToLowerInvariant();
+                if (recGenres.Contains(printGenre)) score += 2;
+            }
+
+            // Color temperature harmony (2x)
+            if (!string.IsNullOrEmpty(p.ColorTemperature) && !string.IsNullOrEmpty(analysis.ColorTemperature))
+            {
+                if (p.ColorTemperature.Equals(analysis.ColorTemperature, StringComparison.OrdinalIgnoreCase))
+                    score += 2;
+                else if (p.ColorTemperature.Equals("mixed", StringComparison.OrdinalIgnoreCase)
+                    || analysis.ColorTemperature.Equals("mixed", StringComparison.OrdinalIgnoreCase))
+                    score += 1;
+            }
+
+            // Orientation fit (1x)
+            if (!string.IsNullOrEmpty(p.Orientation) && !string.IsNullOrEmpty(analysis.WallSpace))
+            {
+                var wallLower = analysis.WallSpace.ToLowerInvariant();
+                if (wallLower.Contains("large") && p.Orientation.Equals("Landscape", StringComparison.OrdinalIgnoreCase))
+                    score += 1;
+                else if (wallLower.Contains("narrow") && p.Orientation.Equals("Portrait", StringComparison.OrdinalIgnoreCase))
+                    score += 1;
+            }
+
+            return new { Print = p, Score = score };
+        })
+        .OrderByDescending(x => x.Score)
+        .Take(12)
+        .Select(x => x.Print)
+        .ToList();
+
+        _logger.LogInformation("Room scoring: {Total} candidates, returning top {Count} matches",
+            candidates.Count, scored.Count);
+
+        return scored;
+    }
+
+    // =========================================================================
     // Helpers
     // =========================================================================
 

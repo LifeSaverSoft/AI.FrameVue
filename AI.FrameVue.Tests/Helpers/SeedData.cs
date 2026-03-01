@@ -163,5 +163,7 @@ public static class SeedData
             """{"colorPairingRules": [], "temperatureGuidelines": {"warmArtwork": {}, "coolArtwork": {}, "mixedTemperature": {}}}""");
         File.WriteAllText(Path.Combine(directory, "vendor-catalog.json"),
             """{"vendors": {}}""");
+        File.WriteAllText(Path.Combine(directory, "room-style-guides.json"),
+            """{"roomStyleGuides": []}""");
     }
 }

@@ -8,7 +8,7 @@
 - **AI**: OpenAI API — `gpt-4o-mini` (text analysis), `gpt-image-1` (image generation)
 - **Hosting**: IIS on Windows Server, deployed via rsync over SMB
 - **Source Control**: Git + GitHub
-- **Testing**: xUnit + WebApplicationFactory + MockOpenAIHandler (58 tests)
+- **Testing**: xUnit + WebApplicationFactory + MockOpenAIHandler (64 tests)
 
 ## Project Overview
 - Analyzes uploaded artwork and generates AI-powered frame recommendations (Good/Better/Best tiers)
@@ -31,9 +31,9 @@
 ## Architecture
 
 ### Two-Pass Analysis
-- Pass 1: Detects art style/medium/mood/colors/era/texture/value via `gpt-4o-mini`
-- Pass 2: Injects knowledge base (RAG-style) and generates expert 3-tier recommendations
-- 3-tier framing: Good/Better/Best with vendor mapping
+- **Art analysis**: Pass 1 detects art style/medium/mood/colors/era/texture/value + lighting/color normalization via `gpt-4o-mini`; Pass 2 injects knowledge base (RAG-style) and generates expert 3-tier recommendations
+- **Room analysis**: Pass 1 detects room style/colors/mood/lighting/furniture with color normalization (estimatedTrueWallColorHex, estimatedTrueRoomColors); Pass 2 injects room-style knowledge guide + framing rules + color theory, generates 3 art recommendations (Best Match/Bold Choice/Subtle Accent) + 3 framing recommendations (Good/Better/Best)
+- Weighted art print scoring: color harmony (4x), mood (3x), style (3x), genre (2x), color temperature (2x), orientation (1x)
 
 ### OpenAI API
 - Models: `gpt-4o-mini` (analysis), `gpt-image-1` (generation)
@@ -47,14 +47,16 @@
 | `Services/KnowledgeBaseService.cs` | Knowledge base CRUD, file watcher, SQLite catalog queries, prompt building, color-distance matching |
 | `Services/CatalogImportService.cs` | SQL Server -> SQLite import (mouldings/mats only), art print search/filter/browse |
 | `Services/CatalogEnrichmentService.cs` | AI image analysis via OpenAI vision for catalog items and art prints |
-| `Controllers/HomeController.cs` | Main app: Analyze, FrameOne, WallPreview, WallRefine, SourceProducts, Feedback, StyleCount, BrowseArtPrints, ArtPrintFilters, DiscoverPrints, SimilarPrints, AnalyzePrint |
+| `Controllers/HomeController.cs` | Main app: Analyze, FrameOne, WallPreview, WallRefine, SourceProducts, Feedback, StyleCount, BrowseArtPrints, ArtPrintFilters, DiscoverPrints, SimilarPrints, AnalyzePrint, AnalyzeRoom |
 | `Controllers/TrainingController.cs` | Admin: Rules/Guides/Examples CRUD, catalog import, enrichment, browse, art print management |
 | `Views/Home/Index.cshtml` | Main app UI — upload, browse, discover, framing, comparison, feedback, wall preview, print detail modal |
 | `Views/Training/Index.cshtml` | Training admin — standalone page with tabs for all admin functions |
 | `wwwroot/js/site.js` | IIFE: upload, analyze, frame generation, 3D viewer (Three.js), wall viewer, comparison, browse, discover wizard |
 | `wwwroot/css/site.css` | Dark theme, gold accents, all component styles |
-| `Data/AppDbContext.cs` | EF Core: DesignSessions, DesignOptions, Feedback, CatalogVendors, CatalogMouldings, CatalogMats, ArtPrintVendors, ArtPrints |
+| `Data/AppDbContext.cs` | EF Core: DesignSessions, DesignOptions, Feedback, CatalogVendors, CatalogMouldings, CatalogMats, ArtPrintVendors, ArtPrints, RoomSessions |
 | `Models/CatalogModels.cs` | CatalogVendor, CatalogMoulding, CatalogMat, CatalogArtPrintVendor, CatalogArtPrint |
+| `Models/KnowledgeModels.cs` | Knowledge base DTOs, RoomAnalysis, RoomArtRecommendation, RoomFramingRecommendation, RoomSession, RoomStyleGuide |
+| `KnowledgeBase/room-style-guides.json` | 8 room style guides (modern, traditional, farmhouse, mid-century, minimalist, industrial, coastal, bohemian) |
 
 ### Deployment
 - **Production**: `make deploy/prod` -> dotnet publish Release -> rsync to `/volumes/Websites/FrameVue_AI` -> web.config touch (app pool recycle)
@@ -73,7 +75,7 @@
 ## Data Sources
 - **Mouldings & Mats**: Imported from SQL Server `LifeSaverVendor` database via `/Training/ImportCatalog`
 - **Art Prints**: SQLite-only tables, seeded via `/Training/SeedArtPrints` (hardcoded Sundance Graphics + 15 prints). Additional vendors/prints added via admin CRUD endpoints (`AddArtPrintVendor`, `AddArtPrint`)
-- **Knowledge Base**: 5 JSON files in `/KnowledgeBase/` — framing-rules, art-style-guides, training-examples, color-theory, vendor-catalog
+- **Knowledge Base**: 6 JSON files in `/KnowledgeBase/` — framing-rules, art-style-guides, training-examples, color-theory, vendor-catalog, room-style-guides
 
 ## Completed Features
 1. Knowledge base foundation (5 JSON files, CRUD, file watcher)
@@ -99,6 +101,7 @@
 21. Color/lighting normalization: Layers 1, 2, 4 implemented (AI lighting detection, user lighting hint, prompt awareness)
 22. Art print card placeholders — styled fallback when S3 images unavailable
 23. AI art print enrichment — all 45 prints enriched with colors, moods, styles, descriptions (metadata-based fallback for private S3)
+24. Room Style Advisor — "Style My Room" mode (4th top-level button) + Discovery Wizard "Start with Room Photo" shortcut; two-pass room analysis (detection + knowledge-injected recommendations); color normalization for room photos (estimatedTrueWallColorHex, estimatedTrueRoomColors); weighted multi-criteria art print scoring (color 4x, mood 3x, style 3x, genre 2x, temp 2x, orientation 1x); 8 room style knowledge guides; RoomSession persistence
 
 ## Current Status (Last Updated: 2026-03-01)
 
@@ -107,26 +110,31 @@
 - 3 art print vendors seeded: Sundance Graphics, Wild Apple, World Art Group (45 prints total, all AI-enriched)
 - Moulding/mat catalog imported: 58 vendors, 37,077 mouldings, 7,273 mats
 - Searchable combo box filters on all browse dropdowns (type to search + click to select)
-- Art print discovery wizard (Room -> Mood -> Colors -> Style -> Results)
+- Art print discovery wizard (Room Photo -> Room -> Mood -> Colors -> Style -> Results) with AI room photo shortcut
+- Room Style Advisor: upload room photo → AI detects style/colors/mood/lighting → matched art prints + framing recommendations
 - Training admin Art Prints tab: Seed, Add Vendor, Add Print, Vendor list
 - User Guide page at `/Home/Guide` with walkthroughs for all sections
 - SQLite DB path fixed to use absolute path for IIS compatibility
-- Knowledge base loaded: 18 rules, 13 style guides, 6 examples, 5 vendors
+- Knowledge base loaded: 18 rules, 13 style guides, 6 examples, 5 vendors, 8 room style guides
 - Color/lighting normalization: Pass 1 detects lighting condition and estimates true colors; Pass 2 uses true colors for recommendations
 - Photo Lighting selector in upload form (optional user hint: daylight/incandescent/fluorescent/flash/mixed)
 - Color matching uses estimatedTrueColors when color cast detected
 - Art print cards show styled placeholders with title/artist/genre when S3 images unavailable
 
 ### Where We Left Off
-- Implemented color normalization Layers 1, 2, 4 (AI detection, user hint, prompt awareness)
-- Art print cards now show styled placeholders when S3 images return 403
-- All deployed and verified on production (ai.framevue.com returns 200, browse returns 45 prints)
+- Implemented Room Style Advisor feature — "Style My Room" mode + Discovery Wizard room photo shortcut
+- Two-pass room analysis: Pass 1 detects room style/colors/mood/lighting with color normalization; Pass 2 injects room-style knowledge + generates art/framing recommendations
+- Added 8 room style knowledge guides (modern, traditional, farmhouse, mid-century, minimalist, industrial, coastal, bohemian)
+- Weighted art print scoring algorithm matches catalog prints to room analysis
+- 64 tests passing (58 original + 6 new room analysis tests)
+- Not yet deployed to production — needs `frameVue.db` deletion (new RoomSessions table)
 
 ### What Needs to Be Done Next
-1. **S3 image accessibility** — S3 bucket is private (403 on ALL requests, both mouldings and art prints); need AWS credentials or bucket policy change. No images display in browser currently.
-2. **Color normalization Layer 3** — server-side RGB channel normalization as fallback (documented in `Docs/color-normalization-plan.md`)
-3. **Add more prints per vendor** — currently 15 each, use admin CRUD to add more over time
-4. **Browser testing** — manual testing of ComboBox filters, browse UI, and lighting selector in production
+1. **Deploy Room Style Advisor** — `make deploy/prod`, delete production `frameVue.db`, re-import catalog, re-seed art prints
+2. **S3 image accessibility** — S3 bucket is private (403 on ALL requests, both mouldings and art prints); need AWS credentials or bucket policy change. No images display in browser currently.
+3. **Color normalization Layer 3** — server-side RGB channel normalization as fallback (documented in `Docs/color-normalization-plan.md`)
+4. **Add more prints per vendor** — currently 15 each, use admin CRUD to add more over time
+5. **Browser testing** — Room Style Advisor, Discovery Wizard room photo flow, ComboBox filters, lighting selector in production
 
 ## User Preferences
 - Target users: gifted framers who are NOT tech-savvy (hence voice dictation, large tap targets)
@@ -146,6 +154,6 @@
 ## Test Suite
 - Location: `AI.FrameVue.Tests/`
 - Run: `dotnet test AI.FrameVue.Tests/`
-- 58 tests: HomeController (23), TrainingController (18), KnowledgeBaseService (9), CatalogImportService (8)
+- 64 tests: HomeController (29), TrainingController (18), KnowledgeBaseService (9), CatalogImportService (8)
 - Uses `TestWebApplicationFactory` with in-memory SQLite, `MockOpenAIHandler` for all OpenAI calls
 - All tests run without network access (~450ms)

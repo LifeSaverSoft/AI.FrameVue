@@ -2539,4 +2539,259 @@ details[open] .context-toggle::before {
         padding: 0.75rem;
         font-size: 0.8rem;
     }
+    .room-summary-grid {
+        grid-template-columns: 1fr;
+    }
+    .room-framing-grid {
+        grid-template-columns: 1fr;
+    }
+    .room-art-recs-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ===================================================================
+   ROOM STYLE ADVISOR
+   =================================================================== */
+
+.room-section { padding: 2rem 1rem; }
+
+.room-results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1000px;
+    margin: 0 auto 1.5rem;
+    padding: 0 1rem;
+}
+.room-results-header h2 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 1.5rem;
+    margin: 0;
+}
+
+.room-analysis-summary {
+    max-width: 900px;
+    margin: 0 auto 2rem;
+    padding: 1.5rem;
+    background: rgba(20, 20, 34, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+}
+
+.room-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+}
+.room-summary-wide {
+    grid-column: 1 / -1;
+}
+
+.room-summary-item label {
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #8888a0;
+    margin-bottom: 0.25rem;
+    font-family: 'Inter', -apple-system, sans-serif;
+}
+.room-summary-item span {
+    font-size: 0.9rem;
+    color: #e8e8f0;
+}
+
+.room-badge {
+    display: inline-block;
+    padding: 0.2rem 0.65rem;
+    background: rgba(201, 168, 76, 0.15);
+    border: 1px solid #c9a84c;
+    border-radius: 20px;
+    color: #c9a84c;
+    font-size: 0.85rem;
+    text-transform: capitalize;
+}
+
+.room-color-chip {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    vertical-align: middle;
+    margin-right: 0.25rem;
+}
+
+.room-color-row {
+    display: flex;
+    gap: 0.3rem;
+    align-items: center;
+}
+.room-color-dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    flex-shrink: 0;
+}
+.room-color-dot-sm {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    display: inline-block;
+}
+
+.room-cast-note {
+    color: #c9a84c;
+    font-size: 0.75rem;
+}
+
+/* Room Art Recommendations */
+.room-art-recs {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.room-art-recs h4 {
+    font-family: 'Playfair Display', Georgia, serif;
+    color: #e8e8f0;
+    margin-bottom: 0.75rem;
+}
+.room-art-recs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 0.75rem;
+}
+.room-art-rec-card {
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+}
+.room-art-rec-category {
+    font-family: 'Playfair Display', Georgia, serif;
+    color: #c9a84c;
+    font-size: 0.95rem;
+    margin-bottom: 0.5rem;
+}
+.room-art-rec-detail {
+    font-size: 0.8rem;
+    color: #e8e8f0;
+    margin-bottom: 0.2rem;
+}
+.room-art-rec-colors {
+    display: flex;
+    gap: 0.2rem;
+    margin: 0.4rem 0;
+}
+.room-art-rec-reasoning {
+    font-size: 0.75rem;
+    color: #8888a0;
+    font-style: italic;
+    margin-top: 0.4rem;
+}
+
+/* Room Framing Section */
+.room-framing-section,
+.room-prints-section {
+    max-width: 1000px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+.room-framing-section h3,
+.room-prints-section h3 {
+    font-family: 'Playfair Display', Georgia, serif;
+    color: #e8e8f0;
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+}
+
+.room-framing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.room-framing-card {
+    padding: 1.25rem;
+    background: rgba(20, 20, 34, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    transition: border-color 0.25s;
+}
+.room-framing-card:hover {
+    border-color: #c9a84c;
+}
+
+.room-framing-tier {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 1.05rem;
+    color: #c9a84c;
+    margin-bottom: 0.6rem;
+}
+.room-framing-detail {
+    font-size: 0.85rem;
+    color: #e8e8f0;
+    margin-bottom: 0.35rem;
+}
+.room-framing-reasoning {
+    font-size: 0.78rem;
+    color: #8888a0;
+    margin-top: 0.5rem;
+    font-style: italic;
+}
+
+.room-no-prints {
+    text-align: center;
+    color: #8888a0;
+    padding: 2rem;
+    font-style: italic;
+}
+
+/* Discovery Wizard — Room Photo Shortcut */
+.discover-hint-text {
+    color: #8888a0;
+    font-size: 0.85rem;
+    margin-bottom: 1.25rem;
+}
+.discover-room-upload {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+.discover-room-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+.discover-room-analyzing {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    justify-content: center;
+    margin-top: 1rem;
+    color: #8888a0;
+}
+
+/* AI pre-filled badge */
+.ai-prefilled {
+    position: relative;
+}
+.ai-prefilled::after {
+    content: 'AI';
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: #c9a84c;
+    color: #08080f;
+    font-size: 0.55rem;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
 }

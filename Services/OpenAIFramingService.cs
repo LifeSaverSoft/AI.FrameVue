@@ -309,6 +309,52 @@ public class OpenAIFramingService
     }
 
     // ==========================================================================
+    // Step 4: ROOM STYLE ANALYSIS (two-pass)
+    // Pass 1: Detect room style, colors, mood, lighting with color normalization
+    // Pass 2: Inject knowledge + generate art/framing recommendations
+    // ==========================================================================
+
+    public async Task<RoomAnalysis> AnalyzeRoomAsync(byte[] imageData, string mimeType, RoomAnalysisRequest? hints = null)
+    {
+        var base64Image = Convert.ToBase64String(imageData);
+        var dataUri = $"data:{mimeType};base64,{base64Image}";
+
+        // --- Pass 1: Room detection with lighting/color normalization ---
+        var detectionPrompt = BuildRoomDetectionPrompt(hints);
+        var detectionResult = await CallTextApi(_analysisModel, detectionPrompt, dataUri);
+        var detection = ParseRoomDetectionResponse(detectionResult);
+
+        _logger.LogInformation(
+            "Room Pass 1: style={Style}, room={Room}, mood={Mood}, wall={Wall}, lighting={Lighting}, cast={Cast}",
+            detection.DesignStyle, detection.RoomType, detection.Mood,
+            detection.WallColor, detection.LightingCondition, detection.ColorCastDetected);
+
+        // --- Knowledge lookup ---
+        var effectiveTemp = detection.ColorTemperature;
+        var knowledgeInjection = _knowledgeBase.BuildRoomKnowledgeInjection(
+            detection.DesignStyle, detection.Mood, effectiveTemp);
+
+        _logger.LogInformation("Room knowledge injection length: {Length} chars", knowledgeInjection.Length);
+
+        // --- Color-matched product lookup (use true room colors) ---
+        var colorsForMatching = detection.EstimatedTrueRoomColors.Count > 0
+            ? detection.EstimatedTrueRoomColors
+            : detection.RoomColors;
+        var colorMatches = _knowledgeBase.FindColorMatchedProducts(colorsForMatching);
+        var colorMatchText = KnowledgeBaseService.FormatColorMatchedProductsAsText(colorMatches);
+
+        // --- Pass 2: Art + framing recommendations ---
+        var recommendationPrompt = BuildRoomRecommendationPrompt(detection, knowledgeInjection, colorMatchText);
+        var recommendationResult = await CallTextApi(_analysisModel, recommendationPrompt, dataUri);
+        ParseRoomRecommendationsResponse(recommendationResult, detection);
+
+        _logger.LogInformation("Room Pass 2: {ArtRecs} art recs, {FrameRecs} framing recs",
+            detection.ArtRecommendations.Count, detection.FramingRecommendations.Count);
+
+        return detection;
+    }
+
+    // ==========================================================================
     // PROMPT BUILDERS
     // ==========================================================================
 
@@ -516,6 +562,287 @@ public class OpenAIFramingService
             "displayed on a clean neutral gallery wall. The framing must be proportional and realistic.\n\n" +
             "IMPORTANT: Your text response must be ONLY this JSON (no other text):\n" +
             $"{{\"styleName\":\"{displayName}\",\"moulding\":{{\"style\":\"<frame style>\",\"color\":\"<color/finish>\",\"width\":\"<approximate width>\",\"description\":\"<why this works>\"}},\"mat\":{{\"color\":\"<mat color>\",\"style\":\"<single or double mat>\",\"description\":\"<why this works>\"}}}}";
+    }
+
+    // ==========================================================================
+    // ROOM ANALYSIS PROMPT BUILDERS
+    // ==========================================================================
+
+    /// <summary>
+    /// Room Pass 1: Detect room style, colors, mood, lighting with color normalization.
+    /// </summary>
+    private static string BuildRoomDetectionPrompt(RoomAnalysisRequest? hints = null)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("You are an expert interior designer and color scientist. Examine this room photo and identify its characteristics.");
+        sb.AppendLine();
+        sb.AppendLine("IMPORTANT — LIGHTING & COLOR CORRECTION:");
+        sb.AppendLine("This photo may have been taken under non-neutral lighting (warm incandescent, cool fluorescent, flash, mixed).");
+        sb.AppendLine("You MUST detect the lighting condition and estimate the TRUE colors of the room as they would appear under neutral D50 (5000K) daylight — the standard illuminant for color evaluation.");
+        sb.AppendLine("If you detect a color cast (warm yellow, cool blue, green fluorescent tint), estimate the actual room colors without that cast.");
+        sb.AppendLine();
+
+        if (hints != null)
+        {
+            if (!string.IsNullOrEmpty(hints.RoomType))
+                sb.AppendLine($"USER HINT: The user says this is a \"{hints.RoomType}\".");
+            if (!string.IsNullOrEmpty(hints.WallColor))
+                sb.AppendLine($"USER HINT: The user says the walls are \"{hints.WallColor}\".");
+            if (!string.IsNullOrEmpty(hints.DesignStyle))
+                sb.AppendLine($"USER HINT: The user describes the style as \"{hints.DesignStyle}\".");
+            if (hints.RoomType != null || hints.WallColor != null || hints.DesignStyle != null)
+                sb.AppendLine();
+        }
+
+        sb.AppendLine("Detect ALL of the following:");
+        sb.AppendLine("1. designStyle — modern, traditional, farmhouse, mid-century, minimalist, industrial, coastal, bohemian, transitional, eclectic");
+        sb.AppendLine("2. roomType — living room, bedroom, office, dining room, hallway, bathroom, kitchen, nursery");
+        sb.AppendLine("3. wallColor — the dominant wall color name (e.g., \"warm white\", \"light gray\", \"navy blue\")");
+        sb.AppendLine("4. wallColorHex — the wall color AS PHOTOGRAPHED (hex code)");
+        sb.AppendLine("5. estimatedTrueWallColorHex — the wall color under neutral D50 daylight (hex). If no cast, matches wallColorHex.");
+        sb.AppendLine("6. roomColors — 3-5 dominant colors from the room AS PHOTOGRAPHED (walls, furniture, textiles) as hex codes");
+        sb.AppendLine("7. estimatedTrueRoomColors — those same 3-5 colors as they would appear under neutral D50 daylight (hex). If no cast, matches roomColors.");
+        sb.AppendLine("8. colorTemperature — overall room temperature: warm, cool, or mixed");
+        sb.AppendLine("9. lightingCondition — \"neutral daylight\", \"warm artificial (~2700K)\", \"warm artificial (~3000K)\", \"cool fluorescent (~4000K)\", \"flash\", \"mixed\", or \"unknown\"");
+        sb.AppendLine("10. colorCastDetected — describe any cast (e.g., \"warm yellow cast\", \"cool blue cast\"). Use \"none\" if neutral.");
+        sb.AppendLine("11. furnitureStyle — modern, traditional, mid-century, rustic, eclectic, minimalist, mixed");
+        sb.AppendLine("12. era — contemporary, mid-century, traditional, rustic, art-deco, mixed");
+        sb.AppendLine("13. mood — cozy, formal, minimalist, vibrant, serene, dramatic, inviting, playful");
+        sb.AppendLine("14. wallSpace — large open wall, small accent, gallery wall, above furniture, narrow hallway, above fireplace");
+        sb.AppendLine("15. decorElements — array of existing decor items visible (e.g., sofa, bookshelf, fireplace, curtains, rug, plants)");
+        sb.AppendLine("16. flooringType — hardwood, carpet, tile, concrete, rug-covered, laminate");
+        sb.AppendLine();
+        sb.AppendLine("Respond with ONLY this JSON (no other text):");
+        sb.Append("{\"designStyle\":\"<style>\",\"roomType\":\"<type>\",\"wallColor\":\"<name>\",");
+        sb.Append("\"wallColorHex\":\"<hex>\",\"estimatedTrueWallColorHex\":\"<hex>\",");
+        sb.Append("\"roomColors\":[\"<hex>\",\"<hex>\",\"<hex>\"],");
+        sb.Append("\"estimatedTrueRoomColors\":[\"<hex>\",\"<hex>\",\"<hex>\"],");
+        sb.Append("\"colorTemperature\":\"<warm/cool/mixed>\",");
+        sb.Append("\"lightingCondition\":\"<condition>\",\"colorCastDetected\":\"<cast or none>\",");
+        sb.Append("\"furnitureStyle\":\"<style>\",\"era\":\"<era>\",\"mood\":\"<mood>\",");
+        sb.Append("\"wallSpace\":\"<space>\",\"decorElements\":[\"<item>\",\"<item>\"],");
+        sb.Append("\"flooringType\":\"<type>\"}");
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Room Pass 2: Generate art + framing recommendations using injected knowledge.
+    /// </summary>
+    private static string BuildRoomRecommendationPrompt(RoomAnalysis detection, string knowledgeInjection, string? colorMatchText)
+    {
+        var sb = new StringBuilder();
+
+        sb.AppendLine("You are a master interior designer and custom picture framer.");
+        sb.AppendLine("Based on the room analysis below, recommend art styles and framing that would complement this space.");
+        sb.AppendLine("You MUST follow the expert rules and knowledge below.\n");
+
+        // Inject knowledge base
+        if (!string.IsNullOrEmpty(knowledgeInjection))
+        {
+            sb.AppendLine("=== EXPERT KNOWLEDGE (FOLLOW STRICTLY) ===\n");
+            sb.AppendLine(knowledgeInjection);
+            sb.AppendLine();
+        }
+
+        // Inject color-matched products
+        if (!string.IsNullOrEmpty(colorMatchText))
+        {
+            sb.AppendLine("[PRODUCTS MATCHING ROOM COLORS — consider these for framing recommendations]");
+            sb.AppendLine(colorMatchText);
+            sb.AppendLine();
+        }
+
+        sb.AppendLine("=== ROOM ANALYSIS ===\n");
+        sb.AppendLine($"Design Style: {detection.DesignStyle}");
+        sb.AppendLine($"Room Type: {detection.RoomType}");
+        sb.AppendLine($"Wall Color: {detection.WallColor} ({detection.WallColorHex})");
+        sb.AppendLine($"Furniture Style: {detection.FurnitureStyle}");
+        sb.AppendLine($"Era: {detection.Era}");
+        sb.AppendLine($"Mood: {detection.Mood}");
+        sb.AppendLine($"Wall Space: {detection.WallSpace}");
+        sb.AppendLine($"Flooring: {detection.FlooringType}");
+        if (detection.DecorElements.Count > 0)
+            sb.AppendLine($"Existing Decor: {string.Join(", ", detection.DecorElements)}");
+
+        // Color normalization info
+        var hasColorCast = !string.IsNullOrEmpty(detection.ColorCastDetected)
+            && !detection.ColorCastDetected.Equals("none", StringComparison.OrdinalIgnoreCase);
+        if (hasColorCast && detection.EstimatedTrueRoomColors.Count > 0)
+        {
+            sb.AppendLine($"\nLIGHTING NOTE: Photo taken under {detection.LightingCondition}. Color cast: {detection.ColorCastDetected}.");
+            sb.AppendLine($"Room Colors (as photographed): {string.Join(", ", detection.RoomColors)}");
+            sb.AppendLine($"TRUE Room Colors (under D50 daylight): {string.Join(", ", detection.EstimatedTrueRoomColors)}");
+            sb.AppendLine($"TRUE Wall Color: {detection.EstimatedTrueWallColorHex}");
+            sb.AppendLine("IMPORTANT: Base your recommendations on the TRUE colors, not the as-photographed colors.");
+        }
+        else
+        {
+            sb.AppendLine($"Room Colors: {string.Join(", ", detection.RoomColors)}");
+        }
+        sb.AppendLine($"Color Temperature: {detection.ColorTemperature}");
+
+        sb.AppendLine("\n=== YOUR TASK ===\n");
+        sb.AppendLine("Generate TWO recommendation sets:\n");
+
+        sb.AppendLine("1. ART RECOMMENDATIONS — 3 categories:");
+        sb.AppendLine("  - \"Best Match\" — the safest, most harmonious art choice for this room");
+        sb.AppendLine("  - \"Bold Choice\" — a bolder, more statement-making suggestion");
+        sb.AppendLine("  - \"Subtle Accent\" — a complementary, understated option");
+        sb.AppendLine("  Each needs: artStyle, mood, colors (3 hex codes), genre, sizeGuidance, reasoning\n");
+
+        sb.AppendLine("2. FRAMING RECOMMENDATIONS — Good/Better/Best tiers:");
+        sb.AppendLine("  - Good: a solid frame+mat combo that works in this room");
+        sb.AppendLine("  - Better: a more refined pairing that elevates the space");
+        sb.AppendLine("  - Best: the ideal frame+mat that a master framer would choose for this room");
+        sb.AppendLine("  Each needs: mouldingStyle, mouldingColor, mouldingWidth (thin/medium/wide), matColor, matStyle (single/double/no mat), reasoning\n");
+
+        sb.AppendLine("Respond with ONLY this JSON (no other text):");
+        sb.AppendLine("{\"artRecommendations\":[");
+        sb.AppendLine("  {\"category\":\"Best Match\",\"artStyle\":\"<style>\",\"mood\":\"<mood>\",\"colors\":[\"<hex>\",\"<hex>\",\"<hex>\"],\"genre\":\"<genre>\",\"sizeGuidance\":\"<size>\",\"reasoning\":\"<why>\"},");
+        sb.AppendLine("  {\"category\":\"Bold Choice\",\"artStyle\":\"<style>\",\"mood\":\"<mood>\",\"colors\":[\"<hex>\",\"<hex>\",\"<hex>\"],\"genre\":\"<genre>\",\"sizeGuidance\":\"<size>\",\"reasoning\":\"<why>\"},");
+        sb.AppendLine("  {\"category\":\"Subtle Accent\",\"artStyle\":\"<style>\",\"mood\":\"<mood>\",\"colors\":[\"<hex>\",\"<hex>\",\"<hex>\"],\"genre\":\"<genre>\",\"sizeGuidance\":\"<size>\",\"reasoning\":\"<why>\"}");
+        sb.AppendLine("],\"framingRecommendations\":[");
+        sb.AppendLine("  {\"tier\":\"Good\",\"mouldingStyle\":\"<style>\",\"mouldingColor\":\"<color>\",\"mouldingWidth\":\"<width>\",\"matColor\":\"<color>\",\"matStyle\":\"<style>\",\"reasoning\":\"<why>\"},");
+        sb.AppendLine("  {\"tier\":\"Better\",\"mouldingStyle\":\"<style>\",\"mouldingColor\":\"<color>\",\"mouldingWidth\":\"<width>\",\"matColor\":\"<color>\",\"matStyle\":\"<style>\",\"reasoning\":\"<why>\"},");
+        sb.AppendLine("  {\"tier\":\"Best\",\"mouldingStyle\":\"<style>\",\"mouldingColor\":\"<color>\",\"mouldingWidth\":\"<width>\",\"matColor\":\"<color>\",\"matStyle\":\"<style>\",\"reasoning\":\"<why>\"}");
+        sb.AppendLine("]}");
+
+        return sb.ToString();
+    }
+
+    // ==========================================================================
+    // ROOM ANALYSIS RESPONSE PARSERS
+    // ==========================================================================
+
+    private RoomAnalysis ParseRoomDetectionResponse(string responseBody)
+    {
+        var fallback = new RoomAnalysis
+        {
+            DesignStyle = "modern",
+            RoomType = "living room",
+            WallColor = "white",
+            WallColorHex = "#FFFFFF",
+            Mood = "inviting"
+        };
+
+        var text = ExtractTextFromResponse(responseBody);
+        if (string.IsNullOrEmpty(text)) return fallback;
+
+        _logger.LogInformation("Room Pass 1 raw: {Text}", text.Length > 500 ? text[..500] + "..." : text);
+
+        try
+        {
+            var start = text.IndexOf('{');
+            var end = text.LastIndexOf('}');
+            if (start < 0 || end <= start) return fallback;
+
+            var jsonText = text[start..(end + 1)];
+            using var doc = JsonDocument.Parse(jsonText);
+            var root = doc.RootElement;
+
+            var analysis = new RoomAnalysis
+            {
+                DesignStyle = root.TryGetProperty("designStyle", out var ds) ? ds.GetString() ?? "" : "",
+                RoomType = root.TryGetProperty("roomType", out var rt) ? rt.GetString() ?? "" : "",
+                WallColor = root.TryGetProperty("wallColor", out var wc) ? wc.GetString() ?? "" : "",
+                WallColorHex = root.TryGetProperty("wallColorHex", out var wch) ? wch.GetString() ?? "" : "",
+                EstimatedTrueWallColorHex = root.TryGetProperty("estimatedTrueWallColorHex", out var etwc) ? etwc.GetString() ?? "" : "",
+                ColorTemperature = root.TryGetProperty("colorTemperature", out var ct) ? ct.GetString() ?? "" : "",
+                LightingCondition = root.TryGetProperty("lightingCondition", out var lc) ? lc.GetString() ?? "" : "",
+                ColorCastDetected = root.TryGetProperty("colorCastDetected", out var ccd) ? ccd.GetString() ?? "" : "",
+                FurnitureStyle = root.TryGetProperty("furnitureStyle", out var fs) ? fs.GetString() ?? "" : "",
+                Era = root.TryGetProperty("era", out var era) ? era.GetString() ?? "" : "",
+                Mood = root.TryGetProperty("mood", out var mood) ? mood.GetString() ?? "" : "",
+                WallSpace = root.TryGetProperty("wallSpace", out var ws) ? ws.GetString() ?? "" : "",
+                FlooringType = root.TryGetProperty("flooringType", out var ft) ? ft.GetString() ?? "" : "",
+                RoomColors = new List<string>(),
+                EstimatedTrueRoomColors = new List<string>(),
+                DecorElements = new List<string>()
+            };
+
+            if (root.TryGetProperty("roomColors", out var colors))
+                foreach (var c in colors.EnumerateArray())
+                    analysis.RoomColors.Add(c.GetString() ?? "");
+
+            if (root.TryGetProperty("estimatedTrueRoomColors", out var trueColors))
+                foreach (var c in trueColors.EnumerateArray())
+                    analysis.EstimatedTrueRoomColors.Add(c.GetString() ?? "");
+
+            if (root.TryGetProperty("decorElements", out var decor))
+                foreach (var d in decor.EnumerateArray())
+                    analysis.DecorElements.Add(d.GetString() ?? "");
+
+            return analysis;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not parse room detection response");
+            return fallback;
+        }
+    }
+
+    private void ParseRoomRecommendationsResponse(string responseBody, RoomAnalysis analysis)
+    {
+        var text = ExtractTextFromResponse(responseBody);
+        if (string.IsNullOrEmpty(text)) return;
+
+        _logger.LogInformation("Room Pass 2 raw: {Text}", text.Length > 500 ? text[..500] + "..." : text);
+
+        try
+        {
+            var start = text.IndexOf('{');
+            var end = text.LastIndexOf('}');
+            if (start < 0 || end <= start) return;
+
+            var jsonText = text[start..(end + 1)];
+            using var doc = JsonDocument.Parse(jsonText);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("artRecommendations", out var artRecs))
+            {
+                foreach (var rec in artRecs.EnumerateArray())
+                {
+                    var artRec = new RoomArtRecommendation
+                    {
+                        Category = rec.TryGetProperty("category", out var cat) ? cat.GetString() ?? "" : "",
+                        ArtStyle = rec.TryGetProperty("artStyle", out var ast) ? ast.GetString() ?? "" : "",
+                        Mood = rec.TryGetProperty("mood", out var m) ? m.GetString() ?? "" : "",
+                        Genre = rec.TryGetProperty("genre", out var g) ? g.GetString() ?? "" : "",
+                        SizeGuidance = rec.TryGetProperty("sizeGuidance", out var sg) ? sg.GetString() ?? "" : "",
+                        Reasoning = rec.TryGetProperty("reasoning", out var r) ? r.GetString() ?? "" : "",
+                        Colors = new List<string>()
+                    };
+
+                    if (rec.TryGetProperty("colors", out var colors))
+                        foreach (var c in colors.EnumerateArray())
+                            artRec.Colors.Add(c.GetString() ?? "");
+
+                    analysis.ArtRecommendations.Add(artRec);
+                }
+            }
+
+            if (root.TryGetProperty("framingRecommendations", out var frameRecs))
+            {
+                foreach (var rec in frameRecs.EnumerateArray())
+                {
+                    analysis.FramingRecommendations.Add(new RoomFramingRecommendation
+                    {
+                        Tier = rec.TryGetProperty("tier", out var t) ? t.GetString() ?? "" : "",
+                        MouldingStyle = rec.TryGetProperty("mouldingStyle", out var ms) ? ms.GetString() ?? "" : "",
+                        MouldingColor = rec.TryGetProperty("mouldingColor", out var mc) ? mc.GetString() ?? "" : "",
+                        MouldingWidth = rec.TryGetProperty("mouldingWidth", out var mw) ? mw.GetString() ?? "" : "",
+                        MatColor = rec.TryGetProperty("matColor", out var matc) ? matc.GetString() ?? "" : "",
+                        MatStyle = rec.TryGetProperty("matStyle", out var mats) ? mats.GetString() ?? "" : "",
+                        Reasoning = rec.TryGetProperty("reasoning", out var r) ? r.GetString() ?? "" : ""
+                    });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not parse room recommendations response");
+        }
     }
 
     // ==========================================================================

@@ -24,10 +24,20 @@ public class MockOpenAIHandler : DelegatingHandler
         }
         else
         {
-            // Text analysis request (Analyze pass 1 & 2, SourceProducts)
-            if (body.Contains("recommendations") || body.Contains("KNOWLEDGE BASE"))
+            // Text analysis request (Analyze pass 1 & 2, SourceProducts, Room analysis)
+            if (body.Contains("interior designer") && body.Contains("artRecommendations"))
             {
-                // Pass 2: recommendations
+                // Room Pass 2: art + framing recommendations
+                response = CreateRoomRecommendationsResponse();
+            }
+            else if (body.Contains("interior designer") && body.Contains("designStyle"))
+            {
+                // Room Pass 1: room detection
+                response = CreateRoomDetectionResponse();
+            }
+            else if (body.Contains("recommendations") || body.Contains("KNOWLEDGE BASE"))
+            {
+                // Art Pass 2: recommendations
                 response = CreateRecommendationsResponse();
             }
             else if (body.Contains("vendor") || body.Contains("sourcing"))
@@ -37,7 +47,7 @@ public class MockOpenAIHandler : DelegatingHandler
             }
             else
             {
-                // Pass 1: detection
+                // Art Pass 1: detection
                 response = CreateDetectionResponse();
             }
         }
@@ -143,6 +153,62 @@ public class MockOpenAIHandler : DelegatingHandler
                 System.Text.Encoding.UTF8,
                 "application/json")
         };
+    }
+
+    private static HttpResponseMessage CreateRoomDetectionResponse()
+    {
+        var json = JsonSerializer.Serialize(new
+        {
+            designStyle = "modern",
+            roomType = "living room",
+            wallColor = "warm white",
+            wallColorHex = "#FAF0E6",
+            estimatedTrueWallColorHex = "#F5F5F0",
+            roomColors = new[] { "#FAF0E6", "#8B7355", "#2F4F4F", "#D2B48C" },
+            estimatedTrueRoomColors = new[] { "#F5F5F0", "#8B7355", "#2F4F4F", "#D2B48C" },
+            colorTemperature = "warm",
+            lightingCondition = "warm artificial (~3000K)",
+            colorCastDetected = "warm yellow cast",
+            furnitureStyle = "mid-century",
+            era = "contemporary",
+            mood = "inviting",
+            wallSpace = "large open wall",
+            decorElements = new[] { "sofa", "coffee table", "bookshelf" },
+            flooringType = "hardwood"
+        });
+        return CreateTextResponse(json);
+    }
+
+    private static HttpResponseMessage CreateRoomRecommendationsResponse()
+    {
+        var json = JsonSerializer.Serialize(new
+        {
+            artRecommendations = new[]
+            {
+                new { category = "Best Match", artStyle = "abstract", mood = "serene",
+                      colors = new[] { "#4A6741", "#C4A35A" }, genre = "Abstract",
+                      sizeGuidance = "large statement piece", reasoning = "Complements warm modern space" },
+                new { category = "Bold Choice", artStyle = "photography", mood = "dramatic",
+                      colors = new[] { "#2F4F4F", "#000000" }, genre = "Photography",
+                      sizeGuidance = "medium", reasoning = "Adds contrast and visual interest" },
+                new { category = "Subtle Accent", artStyle = "watercolor", mood = "serene",
+                      colors = new[] { "#87CEEB", "#FAF0E6" }, genre = "Landscape",
+                      sizeGuidance = "medium complementary", reasoning = "Soft complement to room tones" }
+            },
+            framingRecommendations = new[]
+            {
+                new { tier = "Good", mouldingStyle = "Slim contemporary", mouldingColor = "Matte Black",
+                      mouldingWidth = "thin", matColor = "Warm White", matStyle = "Single mat",
+                      reasoning = "Clean lines complement modern space" },
+                new { tier = "Better", mouldingStyle = "Natural walnut", mouldingColor = "Walnut",
+                      mouldingWidth = "medium", matColor = "Linen", matStyle = "Double mat",
+                      reasoning = "Echoes furniture wood tones" },
+                new { tier = "Best", mouldingStyle = "Floating canvas", mouldingColor = "Natural Oak",
+                      mouldingWidth = "thin", matColor = "No mat", matStyle = "Float mount",
+                      reasoning = "Gallery presentation for modern space" }
+            }
+        });
+        return CreateTextResponse(json);
     }
 
     private static HttpResponseMessage CreateVendorSourcingResponse()
