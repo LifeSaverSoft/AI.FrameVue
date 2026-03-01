@@ -9,10 +9,10 @@ build/dev:
 	dotnet publish -c Debug
 
 sync/prod:
-	rsync --delete -du ./bin/release/net8.0/publish/ //volumes/Websites/FrameVue_AI
+	rsync --delete -ru ./bin/release/net8.0/publish/ //volumes/Websites/FrameVue_AI
 
 sync/dev:
-	rsync --delete -du ./bin/debug/net8.0/publish/ //volumes/Websites/Dev_FrameVue_AI
+	rsync --delete -ru ./bin/debug/net8.0/publish/ //volumes/Websites/Dev_FrameVue_AI
 
 deploy/prod: build/release sync/prod recyclepool
 
