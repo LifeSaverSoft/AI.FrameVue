@@ -2181,6 +2181,49 @@ details[open] .context-toggle::before {
     margin-top: 2px;
 }
 
+.print-card-placeholder {
+    width: 100%;
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: linear-gradient(145deg, rgba(14, 14, 26, 0.8), rgba(20, 20, 40, 0.6));
+    color: var(--text-muted, #555568);
+    text-align: center;
+}
+
+.print-card-placeholder svg {
+    opacity: 0.3;
+    color: var(--gold, #c9a84c);
+}
+
+.print-card-placeholder-title {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-secondary, #8888a0);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.3;
+}
+
+.print-card-placeholder-artist {
+    font-size: 0.7rem;
+    color: var(--text-muted, #555568);
+}
+
+.print-card-placeholder-genre {
+    font-size: 0.65rem;
+    color: var(--gold-dark, #96782e);
+    opacity: 0.6;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
 /* ===== DISCOVERY SECTION ===== */
 
 .discover-section {

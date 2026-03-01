@@ -54,23 +54,31 @@ public class OpenAIFramingService
         var base64Image = Convert.ToBase64String(imageData);
         var dataUri = $"data:{mimeType};base64,{base64Image}";
 
-        // --- Pass 1: Quick art detection ---
-        var detectionPrompt = BuildDetectionPrompt();
+        // --- Pass 1: Quick art detection with lighting analysis ---
+        var userLightingHint = userContext?.LightingCondition;
+        var detectionPrompt = BuildDetectionPrompt(userLightingHint);
         var detectionResult = await CallTextApi(_analysisModel, detectionPrompt, dataUri);
         var detection = ParseDetectionResponse(detectionResult);
 
         _logger.LogInformation(
-            "Pass 1 detection: style={Style}, medium={Medium}, mood={Mood}, temp={Temp}",
-            detection.ArtStyle, detection.Medium, detection.Mood, detection.ColorTemperature);
+            "Pass 1 detection: style={Style}, medium={Medium}, mood={Mood}, temp={Temp}, lighting={Lighting}, cast={Cast}, trueTemp={TrueTemp}",
+            detection.ArtStyle, detection.Medium, detection.Mood, detection.ColorTemperature,
+            detection.LightingCondition, detection.ColorCastDetected, detection.EstimatedTrueTemperature);
 
-        // --- Knowledge lookup ---
+        // --- Knowledge lookup (use true temperature when available) ---
+        var effectiveTemperature = !string.IsNullOrEmpty(detection.EstimatedTrueTemperature)
+            ? detection.EstimatedTrueTemperature
+            : detection.ColorTemperature;
         var knowledgeInjection = _knowledgeBase.BuildKnowledgeInjection(
-            detection.ArtStyle, detection.Medium, detection.Mood, detection.ColorTemperature);
+            detection.ArtStyle, detection.Medium, detection.Mood, effectiveTemperature);
 
         _logger.LogInformation("Knowledge injection length: {Length} chars", knowledgeInjection.Length);
 
-        // --- Color-matched product lookup ---
-        var colorMatches = _knowledgeBase.FindColorMatchedProducts(detection.DominantColors);
+        // --- Color-matched product lookup (prefer estimatedTrueColors over as-photographed) ---
+        var colorsForMatching = detection.EstimatedTrueColors.Count > 0
+            ? detection.EstimatedTrueColors
+            : detection.DominantColors;
+        var colorMatches = _knowledgeBase.FindColorMatchedProducts(colorsForMatching);
         var colorMatchText = KnowledgeBaseService.FormatColorMatchedProductsAsText(colorMatches);
 
         if (!string.IsNullOrEmpty(colorMatchText))
@@ -307,24 +315,47 @@ public class OpenAIFramingService
     /// <summary>
     /// Pass 1: Quick detection of art characteristics. No recommendations yet.
     /// </summary>
-    private static string BuildDetectionPrompt()
+    private static string BuildDetectionPrompt(string? userLightingHint = null)
     {
-        return "You are an expert art analyst. Examine this artwork and identify its characteristics.\n\n" +
-            "Detect ALL of the following:\n" +
-            "1. artStyle — the overall style (e.g., impressionist, abstract-modern, watercolor, photography-modern, oil-painting-classical, minimalist, pop-art, charcoal-pencil, folk-rustic, mixed-media)\n" +
-            "2. medium — the physical medium (oil, watercolor, acrylic, photography, digital, charcoal, pastel, pencil, mixed media, print)\n" +
-            "3. subjectMatter — what is depicted (portrait, landscape, still life, abstract, architectural, floral, animal, figure, seascape, cityscape)\n" +
-            "4. era — the artistic era or period (contemporary, impressionist, renaissance, baroque, art deco, modern, post-modern, classical, folk)\n" +
-            "5. dominantColors — the 3-5 most prominent colors as hex codes\n" +
-            "6. colorTemperature — overall temperature: warm, cool, or mixed\n" +
-            "7. valueRange — tonal range: high-contrast, low-contrast, or full-range\n" +
-            "8. textureQuality — surface quality: heavy-impasto, smooth, delicate, textured, flat\n" +
-            "9. mood — the emotional feel (serene, dramatic, joyful, somber, energetic, contemplative, whimsical, formal)\n\n" +
-            "Respond with ONLY this JSON (no other text):\n" +
-            "{\"artStyle\":\"<style>\",\"medium\":\"<medium>\",\"subjectMatter\":\"<subject>\"," +
-            "\"era\":\"<era>\",\"dominantColors\":[\"<hex>\",\"<hex>\",\"<hex>\"]," +
-            "\"colorTemperature\":\"<warm/cool/mixed>\",\"valueRange\":\"<range>\"," +
-            "\"textureQuality\":\"<texture>\",\"mood\":\"<mood>\"}";
+        var sb = new StringBuilder();
+        sb.AppendLine("You are an expert art analyst and color scientist. Examine this artwork and identify its characteristics.");
+        sb.AppendLine();
+        sb.AppendLine("IMPORTANT — LIGHTING & COLOR CORRECTION:");
+        sb.AppendLine("This photo may have been taken under non-neutral lighting (warm incandescent, cool fluorescent, flash, mixed).");
+        sb.AppendLine("You MUST detect the lighting condition and estimate the TRUE colors of the artwork as they would appear under neutral D50 (5000K) daylight — the standard illuminant for print evaluation in the framing industry.");
+        sb.AppendLine("If you detect a color cast (warm yellow, cool blue, green fluorescent tint), estimate what the actual artwork colors are without that cast.");
+        sb.AppendLine();
+
+        if (!string.IsNullOrEmpty(userLightingHint))
+        {
+            sb.AppendLine($"USER HINT: The user indicated the photo was taken under \"{userLightingHint}\" lighting. Factor this into your analysis.");
+            sb.AppendLine();
+        }
+
+        sb.AppendLine("Detect ALL of the following:");
+        sb.AppendLine("1. artStyle — the overall style (e.g., impressionist, abstract-modern, watercolor, photography-modern, oil-painting-classical, minimalist, pop-art, charcoal-pencil, folk-rustic, mixed-media)");
+        sb.AppendLine("2. medium — the physical medium (oil, watercolor, acrylic, photography, digital, charcoal, pastel, pencil, mixed media, print)");
+        sb.AppendLine("3. subjectMatter — what is depicted (portrait, landscape, still life, abstract, architectural, floral, animal, figure, seascape, cityscape)");
+        sb.AppendLine("4. era — the artistic era or period (contemporary, impressionist, renaissance, baroque, art deco, modern, post-modern, classical, folk)");
+        sb.AppendLine("5. dominantColors — the 3-5 most prominent colors AS PHOTOGRAPHED (hex codes)");
+        sb.AppendLine("6. estimatedTrueColors — the 3-5 colors as they would appear under neutral D50 daylight (hex codes). If no color cast detected, these match dominantColors.");
+        sb.AppendLine("7. colorTemperature — temperature of colors AS PHOTOGRAPHED: warm, cool, or mixed");
+        sb.AppendLine("8. estimatedTrueTemperature — temperature of the TRUE artwork colors (after removing any lighting cast): warm, cool, or mixed");
+        sb.AppendLine("9. lightingCondition — detected lighting: \"neutral daylight\", \"warm artificial (~2700K)\", \"warm artificial (~3000K)\", \"cool fluorescent (~4000K)\", \"flash\", \"mixed\", or \"unknown\"");
+        sb.AppendLine("10. colorCastDetected — if a color cast is present, describe it (e.g., \"warm yellow cast\", \"cool blue cast\", \"green fluorescent tint\"). Use \"none\" if neutral.");
+        sb.AppendLine("11. valueRange — tonal range: high-contrast, low-contrast, or full-range");
+        sb.AppendLine("12. textureQuality — surface quality: heavy-impasto, smooth, delicate, textured, flat");
+        sb.AppendLine("13. mood — the emotional feel (serene, dramatic, joyful, somber, energetic, contemplative, whimsical, formal)");
+        sb.AppendLine();
+        sb.AppendLine("Respond with ONLY this JSON (no other text):");
+        sb.Append("{\"artStyle\":\"<style>\",\"medium\":\"<medium>\",\"subjectMatter\":\"<subject>\",");
+        sb.Append("\"era\":\"<era>\",\"dominantColors\":[\"<hex>\",\"<hex>\",\"<hex>\"],");
+        sb.Append("\"estimatedTrueColors\":[\"<hex>\",\"<hex>\",\"<hex>\"],");
+        sb.Append("\"colorTemperature\":\"<warm/cool/mixed>\",\"estimatedTrueTemperature\":\"<warm/cool/mixed>\",");
+        sb.Append("\"lightingCondition\":\"<condition>\",\"colorCastDetected\":\"<cast or none>\",");
+        sb.Append("\"valueRange\":\"<range>\",\"textureQuality\":\"<texture>\",\"mood\":\"<mood>\"}");
+
+        return sb.ToString();
     }
 
     /// <summary>
@@ -384,8 +415,24 @@ public class OpenAIFramingService
         sb.AppendLine($"Medium: {detection.Medium}");
         sb.AppendLine($"Subject: {detection.SubjectMatter}");
         sb.AppendLine($"Era: {detection.Era}");
-        sb.AppendLine($"Dominant Colors: {string.Join(", ", detection.DominantColors)}");
-        sb.AppendLine($"Color Temperature: {detection.ColorTemperature}");
+        sb.AppendLine($"Dominant Colors (as photographed): {string.Join(", ", detection.DominantColors)}");
+
+        // Lighting-aware color information
+        var hasColorCast = !string.IsNullOrEmpty(detection.ColorCastDetected)
+            && !detection.ColorCastDetected.Equals("none", StringComparison.OrdinalIgnoreCase);
+        if (hasColorCast && detection.EstimatedTrueColors.Count > 0)
+        {
+            sb.AppendLine($"LIGHTING NOTE: Photo taken under {detection.LightingCondition}. Color cast detected: {detection.ColorCastDetected}.");
+            sb.AppendLine($"Estimated TRUE Colors (under neutral D50 daylight): {string.Join(", ", detection.EstimatedTrueColors)}");
+            sb.AppendLine($"Estimated TRUE Color Temperature: {detection.EstimatedTrueTemperature}");
+            sb.AppendLine("IMPORTANT: Base your mat and moulding recommendations on the ESTIMATED TRUE COLORS, not the as-photographed colors.");
+            sb.AppendLine($"Color Temperature: {detection.EstimatedTrueTemperature}");
+        }
+        else
+        {
+            sb.AppendLine($"Color Temperature: {detection.ColorTemperature}");
+        }
+
         sb.AppendLine($"Value Range: {detection.ValueRange}");
         sb.AppendLine($"Texture: {detection.TextureQuality}");
         sb.AppendLine($"Mood: {detection.Mood}");
@@ -684,6 +731,10 @@ public class OpenAIFramingService
                 TextureQuality = root.TryGetProperty("textureQuality", out var tq) ? tq.GetString() ?? "" : "",
                 Mood = root.TryGetProperty("mood", out var m) ? m.GetString() ?? "" : "",
                 DominantColors = new List<string>(),
+                EstimatedTrueColors = new List<string>(),
+                LightingCondition = root.TryGetProperty("lightingCondition", out var lc) ? lc.GetString() ?? "" : "",
+                EstimatedTrueTemperature = root.TryGetProperty("estimatedTrueTemperature", out var ett) ? ett.GetString() ?? "" : "",
+                ColorCastDetected = root.TryGetProperty("colorCastDetected", out var ccd) ? ccd.GetString() ?? "" : "",
                 Recommendations = new List<FrameRecommendation>()
             };
 
@@ -691,6 +742,12 @@ public class OpenAIFramingService
             {
                 foreach (var c in colors.EnumerateArray())
                     analysis.DominantColors.Add(c.GetString() ?? "");
+            }
+
+            if (root.TryGetProperty("estimatedTrueColors", out var trueColors))
+            {
+                foreach (var c in trueColors.EnumerateArray())
+                    analysis.EstimatedTrueColors.Add(c.GetString() ?? "");
             }
 
             return analysis;

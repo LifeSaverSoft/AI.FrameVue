@@ -223,6 +223,7 @@ public class UserFramingContext
     public string? DecorStyle { get; set; }
     public string? BudgetPreference { get; set; }
     public string? FramePurpose { get; set; }
+    public string? LightingCondition { get; set; }
 }
 
 // === Enhanced Analysis (richer dimensions) ===
@@ -239,4 +240,10 @@ public class EnhancedImageAnalysis
     public string TextureQuality { get; set; } = string.Empty;
     public string Mood { get; set; } = string.Empty;
     public List<FrameRecommendation> Recommendations { get; set; } = new();
+
+    // Lighting / color normalization fields (Layer 1)
+    public List<string> EstimatedTrueColors { get; set; } = new();
+    public string LightingCondition { get; set; } = string.Empty;
+    public string EstimatedTrueTemperature { get; set; } = string.Empty;
+    public string ColorCastDetected { get; set; } = string.Empty;
 }

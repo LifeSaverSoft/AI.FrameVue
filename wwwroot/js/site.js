@@ -105,12 +105,14 @@
         var wall = document.getElementById('ctx-wall');
         var decor = document.getElementById('ctx-decor');
         var purpose = document.getElementById('ctx-purpose');
+        var lighting = document.getElementById('ctx-lighting');
 
         var context = {};
         if (room && room.value) context.roomType = room.value;
         if (wall && wall.value) context.wallColor = wall.value;
         if (decor && decor.value) context.decorStyle = decor.value;
         if (purpose && purpose.value) context.framePurpose = purpose.value;
+        if (lighting && lighting.value) context.lightingCondition = lighting.value;
 
         // Only return if at least one field is set
         return Object.keys(context).length > 0 ? context : null;
@@ -1919,9 +1921,22 @@
             card.onclick = function() { showPrintDetail(p); };
 
             var imgSrc = p.imageUrl || p.thumbnailUrl || '';
+            var fallbackHtml =
+                '<div class="print-card-placeholder">' +
+                    '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>' +
+                    '<span class="print-card-placeholder-title">' + esc(p.title) + '</span>' +
+                    '<span class="print-card-placeholder-artist">' + esc(p.artist || '') + '</span>' +
+                    (p.genre ? '<span class="print-card-placeholder-genre">' + esc(p.genre) + '</span>' : '') +
+                '</div>';
             card.innerHTML =
-                (imgSrc ? '<img class="print-card-image" src="' + esc(imgSrc) + '" alt="' + esc(p.title) + '" loading="lazy" onerror="this.style.display=\'none\'" />'
-                    : '<div class="print-card-image" style="display:flex;align-items:center;justify-content:center;color:var(--text-secondary,#8888a0);font-size:0.75rem;">No Image</div>') +
+                (imgSrc ? '<img class="print-card-image" src="' + esc(imgSrc) + '" alt="' + esc(p.title) + '" loading="lazy" onerror="this.onerror=null;this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';" />' +
+                    '<div class="print-card-placeholder" style="display:none;">' +
+                        '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>' +
+                        '<span class="print-card-placeholder-title">' + esc(p.title) + '</span>' +
+                        '<span class="print-card-placeholder-artist">' + esc(p.artist || '') + '</span>' +
+                        (p.genre ? '<span class="print-card-placeholder-genre">' + esc(p.genre) + '</span>' : '') +
+                    '</div>'
+                    : fallbackHtml) +
                 '<div class="print-card-overlay">' +
                     '<div class="print-card-title">' + esc(p.title) + '</div>' +
                     '<div class="print-card-artist">' + esc(p.artist || 'Unknown Artist') + '</div>' +
