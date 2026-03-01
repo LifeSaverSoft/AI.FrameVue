@@ -160,6 +160,150 @@ public class CatalogImportService
     }
 
     /// <summary>
+    /// Seed art print vendors and prints directly into SQLite (no SQL Server needed).
+    /// </summary>
+    public async Task<CatalogImportResult> SeedArtPrintsAsync()
+    {
+        var result = new CatalogImportResult();
+
+        try
+        {
+            _logger.LogInformation("Seeding art print vendors and prints into SQLite...");
+
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            // Clear existing art print data
+            db.ArtPrints.RemoveRange(db.ArtPrints);
+            db.ArtPrintVendors.RemoveRange(db.ArtPrintVendors);
+            await db.SaveChangesAsync();
+
+            // Seed vendors
+            var vendors = GetSeedArtPrintVendors();
+            db.ArtPrintVendors.AddRange(vendors);
+            await db.SaveChangesAsync();
+
+            var vendorLookup = vendors.ToDictionary(v => v.Id);
+
+            // Seed prints
+            var prints = GetSeedArtPrints(vendorLookup);
+            db.ArtPrints.AddRange(prints);
+            await db.SaveChangesAsync();
+
+            result.Success = true;
+            result.ArtPrintVendorsImported = vendors.Count;
+            result.ArtPrintsImported = prints.Count;
+            _logger.LogInformation("Art print seed complete: {Vendors} vendors, {Prints} prints",
+                vendors.Count, prints.Count);
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.Error = ex.Message;
+            _logger.LogError(ex, "Art print seed failed");
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Add a single art print vendor to SQLite.
+    /// </summary>
+    public async Task<CatalogArtPrintVendor> AddArtPrintVendorAsync(CatalogArtPrintVendor vendor)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.ArtPrintVendors.Add(vendor);
+        await db.SaveChangesAsync();
+        return vendor;
+    }
+
+    /// <summary>
+    /// Add a single art print to SQLite.
+    /// </summary>
+    public async Task<CatalogArtPrint> AddArtPrintAsync(CatalogArtPrint print)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        // Build image URL from vendor config
+        var vendor = await db.ArtPrintVendors.FindAsync(print.VendorId);
+        if (vendor != null)
+        {
+            print.VendorName = vendor.Name;
+            var fileName = !string.IsNullOrEmpty(print.ImageFileName)
+                ? print.ImageFileName
+                : $"{print.ItemNumber}.jpg";
+            print.ImageUrl = BuildArtPrintImageUrl(vendor, fileName);
+            print.ThumbnailUrl = print.ImageUrl;
+        }
+
+        db.ArtPrints.Add(print);
+        await db.SaveChangesAsync();
+        return print;
+    }
+
+    /// <summary>
+    /// Get all art print vendors.
+    /// </summary>
+    public async Task<List<CatalogArtPrintVendor>> GetArtPrintVendorsAsync()
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return await db.ArtPrintVendors.OrderBy(v => v.Name).ToListAsync();
+    }
+
+    private static List<CatalogArtPrintVendor> GetSeedArtPrintVendors()
+    {
+        return new List<CatalogArtPrintVendor>
+        {
+            new()
+            {
+                Id = 1,
+                Name = "Sundance Graphics",
+                Code = "SUNDANCE",
+                Website = "https://sdgraphics.com",
+                ImageBaseUrl = "https://lifesaversoft.s3.amazonaws.com",
+                ImagePathPattern = "Art Print Images/Sundance Graphics/{filename}",
+                IsActive = true
+            }
+        };
+    }
+
+    private List<CatalogArtPrint> GetSeedArtPrints(Dictionary<int, CatalogArtPrintVendor> vendorLookup)
+    {
+        var sundance = vendorLookup[1];
+        var prints = new List<CatalogArtPrint>
+        {
+            new() { VendorId = 1, ItemNumber = "14321CF", Title = "Dream Hope Inspire", Artist = "Lanie Loreth", VendorName = sundance.Name, Genre = "Inspirational", Category = "Typography", SubjectMatter = "Motivational words", Style = "Contemporary", Medium = "Acrylic", IsActive = true },
+            new() { VendorId = 1, ItemNumber = "11046H", Title = "Misty Morning Horizon", Artist = "Patricia Pinto", VendorName = sundance.Name, Genre = "Landscape", Category = "Nature", SubjectMatter = "Misty atmospheric landscape", Style = "Impressionist", Medium = "Acrylic", ImageWidthIn = 27.00m, ImageHeightIn = 36.00m, Orientation = "Portrait", IsActive = true },
+            new() { VendorId = 1, ItemNumber = "10176", Title = "Floral Delicate II", Artist = "Lanie Loreth", VendorName = sundance.Name, Genre = "Floral", Category = "Botanical", SubjectMatter = "Delicate flowers with blue tones", Style = "Contemporary", Medium = "Acrylic", IsActive = true },
+            new() { VendorId = 1, ItemNumber = "11602J", Title = "Color Explosion I", Artist = "Kat Papa", VendorName = sundance.Name, Genre = "Abstract", Category = "Abstract", SubjectMatter = "Colorful abstract paint explosion", Style = "Abstract Expressionist", Medium = "Watercolor", IsActive = true },
+            new() { VendorId = 1, ItemNumber = "13141BB", Title = "Enjoy the Little Things", Artist = "SD Graphics Studio", VendorName = sundance.Name, Genre = "Inspirational", Category = "Typography", SubjectMatter = "Coffee themed motivational", Style = "Typography", Medium = "Ink/Digital", IsActive = true },
+            new() { VendorId = 1, ItemNumber = "11052BA", Title = "Indigo Watercolor Feather", Artist = "Patricia Pinto", VendorName = sundance.Name, Genre = "Decorative", Category = "Nature", SubjectMatter = "Feather in indigo watercolor tones", Style = "Decorative", Medium = "Watercolor", IsActive = true },
+            new() { VendorId = 1, ItemNumber = "13099H", Title = "New Green Palm Square", Artist = "Patricia Pinto", VendorName = sundance.Name, Genre = "Tropical", Category = "Botanical", SubjectMatter = "Palm leaves in green tones", Style = "Tropical", Medium = "Watercolor", ImageWidthIn = 12.00m, ImageHeightIn = 12.00m, Orientation = "Square", IsActive = true },
+            new() { VendorId = 1, ItemNumber = "PDX7973H", Title = "Gold Leaves I", Artist = "Patricia Pinto", VendorName = sundance.Name, Genre = "Botanical", Category = "Decorative", SubjectMatter = "Gold decorative leaves", Style = "Contemporary", Medium = "Acrylic", ImageWidthIn = 12.00m, ImageHeightIn = 12.00m, Orientation = "Square", IsActive = true },
+            new() { VendorId = 1, ItemNumber = "PDX9702", Title = "Beach Scene I", Artist = "Julie Derice", VendorName = sundance.Name, Genre = "Coastal", Category = "Beach", SubjectMatter = "Beach scene with ocean view", Style = "Realist", Medium = "Mixed Media", ImageWidthIn = 8.00m, ImageHeightIn = 10.00m, Orientation = "Portrait", IsActive = true },
+            new() { VendorId = 1, ItemNumber = "PDX10259L", Title = "Teal Succulent Vertical", Artist = "Susan Bryant", VendorName = sundance.Name, Genre = "Botanical", Category = "Plants", SubjectMatter = "Teal succulent plant close-up", Style = "Contemporary", Medium = "Photography/Mixed", ImageWidthIn = 24.00m, ImageHeightIn = 36.00m, Orientation = "Portrait", IsActive = true },
+            new() { VendorId = 1, ItemNumber = "PDX10357B", Title = "Stand Tall", Artist = "Susan Bryant", VendorName = sundance.Name, Genre = "Inspirational", Category = "Typography", SubjectMatter = "Typography with botanical elements", Style = "Typography", Medium = "Mixed Media", ImageWidthIn = 10.00m, ImageHeightIn = 14.00m, Orientation = "Portrait", IsActive = true },
+            new() { VendorId = 1, ItemNumber = "PDX9954", Title = "White Peonies II", Artist = "Jane Slivka", VendorName = sundance.Name, Genre = "Floral", Category = "Still Life", SubjectMatter = "White peony still life", Style = "Contemporary", Medium = "Mixed Media", ImageWidthIn = 11.00m, ImageHeightIn = 14.00m, Orientation = "Portrait", IsActive = true },
+            new() { VendorId = 1, ItemNumber = "PDX11687", Title = "Lost in Winter I", Artist = "Michael Marcon", VendorName = sundance.Name, Genre = "Landscape", Category = "Nature", SubjectMatter = "Winter landscape, atmospheric", Style = "Impressionist", Medium = "Acrylic", ImageWidthIn = 8.00m, ImageHeightIn = 24.00m, Orientation = "Portrait", IsActive = true },
+            new() { VendorId = 1, ItemNumber = "PDX9703", Title = "Beach Scene II", Artist = "Julie Derice", VendorName = sundance.Name, Genre = "Coastal", Category = "Beach", SubjectMatter = "Beach and ocean scene", Style = "Realist", Medium = "Mixed Media", ImageWidthIn = 24.00m, ImageHeightIn = 30.00m, Orientation = "Portrait", IsActive = true },
+            new() { VendorId = 1, ItemNumber = "8347D", Title = "Crazy Show II", Artist = "Michael Marcon", VendorName = sundance.Name, Genre = "Abstract", Category = "Abstract", SubjectMatter = "Colorful abstract composition", Style = "Abstract", Medium = "Acrylic", IsActive = true }
+        };
+
+        // Build image URLs
+        foreach (var print in prints)
+        {
+            print.ImageFileName = $"{print.ItemNumber}.jpg";
+            print.ImageUrl = BuildArtPrintImageUrl(sundance, print.ImageFileName);
+            print.ThumbnailUrl = print.ImageUrl;
+        }
+
+        return prints;
+    }
+
+    /// <summary>
     /// Get stats about the current catalog in SQLite.
     /// </summary>
     public async Task<CatalogStats> GetStatsAsync()

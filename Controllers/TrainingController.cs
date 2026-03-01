@@ -429,6 +429,79 @@ public class TrainingController : Controller
         return Json(options);
     }
 
+    [HttpPost]
+    public async Task<IActionResult> SeedArtPrints([FromBody] CatalogImportRequest request)
+    {
+        if (!ValidateAdminKey(request.AdminKey))
+            return Unauthorized(new { error = "Invalid admin key." });
+
+        _logger.LogInformation("Seeding art prints...");
+        var result = await _catalogImport.SeedArtPrintsAsync();
+
+        if (result.Success)
+            _logger.LogInformation("Art print seed succeeded: {Vendors}V / {Prints}P",
+                result.ArtPrintVendorsImported, result.ArtPrintsImported);
+        else
+            _logger.LogError("Art print seed failed: {Error}", result.Error);
+
+        return Json(result);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ArtPrintVendors()
+    {
+        var vendors = await _catalogImport.GetArtPrintVendorsAsync();
+        return Json(vendors);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> AddArtPrintVendor([FromBody] AddArtPrintVendorRequest request)
+    {
+        if (!ValidateAdminKey(request.AdminKey))
+            return Unauthorized(new { error = "Invalid admin key." });
+
+        var vendor = new CatalogArtPrintVendor
+        {
+            Name = request.Name,
+            Code = request.Code,
+            Website = request.Website,
+            ImageBaseUrl = request.ImageBaseUrl,
+            ImagePathPattern = request.ImagePathPattern,
+            IsActive = true
+        };
+
+        var saved = await _catalogImport.AddArtPrintVendorAsync(vendor);
+        return Json(saved);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> AddArtPrint([FromBody] AddArtPrintRequest request)
+    {
+        if (!ValidateAdminKey(request.AdminKey))
+            return Unauthorized(new { error = "Invalid admin key." });
+
+        var print = new CatalogArtPrint
+        {
+            VendorId = request.VendorId,
+            ItemNumber = request.ItemNumber,
+            Title = request.Title,
+            Artist = request.Artist,
+            Genre = request.Genre,
+            Category = request.Category,
+            SubjectMatter = request.SubjectMatter,
+            Style = request.Style,
+            Medium = request.Medium,
+            ImageWidthIn = request.ImageWidthIn,
+            ImageHeightIn = request.ImageHeightIn,
+            Orientation = request.Orientation,
+            ImageFileName = request.ImageFileName,
+            IsActive = true
+        };
+
+        var saved = await _catalogImport.AddArtPrintAsync(print);
+        return Json(saved);
+    }
+
     // === Helpers ===
 
     private bool ValidateAdminKey(string? key)
@@ -506,4 +579,32 @@ public class CatalogImportRequest
     public string? S3MouldingPath { get; set; }
     public string? S3MatPath { get; set; }
     public string? S3ImageExtension { get; set; }
+}
+
+public class AddArtPrintVendorRequest
+{
+    public string? AdminKey { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string? Website { get; set; }
+    public string? ImageBaseUrl { get; set; }
+    public string? ImagePathPattern { get; set; }
+}
+
+public class AddArtPrintRequest
+{
+    public string? AdminKey { get; set; }
+    public int VendorId { get; set; }
+    public string ItemNumber { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string? Artist { get; set; }
+    public string? Genre { get; set; }
+    public string? Category { get; set; }
+    public string? SubjectMatter { get; set; }
+    public string? Style { get; set; }
+    public string? Medium { get; set; }
+    public decimal? ImageWidthIn { get; set; }
+    public decimal? ImageHeightIn { get; set; }
+    public string? Orientation { get; set; }
+    public string? ImageFileName { get; set; }
 }

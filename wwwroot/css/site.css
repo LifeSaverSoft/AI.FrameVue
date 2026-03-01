@@ -1975,6 +1975,101 @@ details[open] .context-toggle::before {
     font-size: 0.85rem;
 }
 
+/* Searchable ComboBox */
+.combobox-wrap {
+    position: relative;
+}
+
+.combobox-input {
+    width: 100%;
+    padding: 0.5rem 2rem 0.5rem 0.5rem;
+    background: rgba(20, 20, 34, 0.8);
+    border: 1px solid var(--border-subtle, #2a2a40);
+    border-radius: 6px;
+    color: var(--text-primary, #e8e8f0);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+}
+
+.combobox-input:focus {
+    outline: none;
+    border-color: var(--gold, #c9a84c);
+    box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.15);
+}
+
+.combobox-input.has-value {
+    border-color: var(--gold, #c9a84c);
+}
+
+.combobox-clear {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-secondary, #8888a0);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 2px 6px;
+    line-height: 1;
+    display: none;
+}
+
+.combobox-clear:hover {
+    color: var(--gold, #c9a84c);
+}
+
+.combobox-wrap.has-value .combobox-clear {
+    display: block;
+}
+
+.combobox-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: rgba(14, 14, 26, 0.98);
+    border: 1px solid var(--border-subtle, #2a2a40);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    max-height: 200px;
+    overflow-y: auto;
+    backdrop-filter: blur(12px);
+}
+
+.combobox-dropdown.open {
+    display: block;
+}
+
+.combobox-option {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.82rem;
+    cursor: pointer;
+    color: var(--text-primary, #e8e8f0);
+    transition: background 0.15s;
+}
+
+.combobox-option:hover,
+.combobox-option.highlighted {
+    background: rgba(201, 168, 76, 0.12);
+    color: var(--gold, #c9a84c);
+}
+
+.combobox-option.selected {
+    color: var(--gold, #c9a84c);
+    font-weight: 500;
+}
+
+.combobox-no-match {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary, #8888a0);
+    font-style: italic;
+}
+
 .filter-chips {
     display: flex;
     flex-wrap: wrap;

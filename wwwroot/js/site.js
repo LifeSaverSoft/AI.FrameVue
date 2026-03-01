@@ -1680,35 +1680,166 @@
         }
     };
 
+    // === Searchable ComboBox ===
+
+    var comboBoxInstances = {};
+
+    function ComboBox(inputId, dropdownId, onSelect) {
+        var input = document.getElementById(inputId);
+        var dropdown = document.getElementById(dropdownId);
+        var wrap = input?.parentElement;
+        var clearBtn = wrap?.querySelector('.combobox-clear');
+        if (!input || !dropdown) return null;
+
+        var allOptions = [];
+        var highlighted = -1;
+        var selectedValue = '';
+
+        input.addEventListener('focus', function() { showDropdown(); });
+        input.addEventListener('input', function() { filterOptions(); });
+        input.addEventListener('keydown', function(e) {
+            var items = dropdown.querySelectorAll('.combobox-option');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                highlighted = Math.min(highlighted + 1, items.length - 1);
+                updateHighlight(items);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                highlighted = Math.max(highlighted - 1, 0);
+                updateHighlight(items);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (highlighted >= 0 && items[highlighted]) {
+                    selectOption(items[highlighted].dataset.value);
+                } else if (input.value.trim()) {
+                    selectOption(input.value.trim());
+                }
+            } else if (e.key === 'Escape') {
+                closeDropdown();
+            }
+        });
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function() {
+                clearSelection();
+                if (onSelect) onSelect('');
+            });
+        }
+
+        document.addEventListener('click', function(e) {
+            if (!wrap.contains(e.target)) closeDropdown();
+        });
+
+        function showDropdown() {
+            filterOptions();
+            dropdown.classList.add('open');
+        }
+
+        function closeDropdown() {
+            dropdown.classList.remove('open');
+            highlighted = -1;
+        }
+
+        function filterOptions() {
+            var query = input.value.toLowerCase();
+            dropdown.innerHTML = '';
+            highlighted = -1;
+
+            var filtered = query
+                ? allOptions.filter(function(o) { return o.toLowerCase().indexOf(query) >= 0; })
+                : allOptions;
+
+            if (filtered.length === 0) {
+                var no = document.createElement('div');
+                no.className = 'combobox-no-match';
+                no.textContent = query ? 'No matches' : 'No options';
+                dropdown.appendChild(no);
+            } else {
+                filtered.forEach(function(opt) {
+                    var div = document.createElement('div');
+                    div.className = 'combobox-option' + (opt === selectedValue ? ' selected' : '');
+                    div.textContent = opt;
+                    div.dataset.value = opt;
+                    div.addEventListener('mousedown', function(e) {
+                        e.preventDefault();
+                        selectOption(opt);
+                    });
+                    dropdown.appendChild(div);
+                });
+            }
+
+            if (!dropdown.classList.contains('open')) dropdown.classList.add('open');
+        }
+
+        function selectOption(value) {
+            selectedValue = value;
+            input.value = value;
+            wrap.classList.add('has-value');
+            input.classList.add('has-value');
+            closeDropdown();
+            if (onSelect) onSelect(value);
+        }
+
+        function clearSelection() {
+            selectedValue = '';
+            input.value = '';
+            wrap.classList.remove('has-value');
+            input.classList.remove('has-value');
+        }
+
+        function updateHighlight(items) {
+            items.forEach(function(item, i) {
+                item.classList.toggle('highlighted', i === highlighted);
+            });
+            if (items[highlighted]) items[highlighted].scrollIntoView({ block: 'nearest' });
+        }
+
+        return {
+            setOptions: function(opts) {
+                allOptions = opts || [];
+            },
+            getValue: function() {
+                return selectedValue;
+            },
+            clear: function() {
+                clearSelection();
+            }
+        };
+    }
+
     // === Browse: Load Filters ===
     var browseFiltersLoaded = false;
+
+    function initComboBoxes() {
+        var onFilter = function() { loadArtPrints(true); };
+        comboBoxInstances.vendor = ComboBox('filter-vendor', 'filter-vendor-dropdown', onFilter);
+        comboBoxInstances.artist = ComboBox('filter-artist', 'filter-artist-dropdown', onFilter);
+        comboBoxInstances.genre = ComboBox('filter-genre', 'filter-genre-dropdown', onFilter);
+        comboBoxInstances.style = ComboBox('filter-style', 'filter-style-dropdown', onFilter);
+        comboBoxInstances.mood = ComboBox('filter-mood', 'filter-mood-dropdown', onFilter);
+        comboBoxInstances.orientation = ComboBox('filter-orientation', 'filter-orientation-dropdown', onFilter);
+
+        // Static orientation options
+        if (comboBoxInstances.orientation) {
+            comboBoxInstances.orientation.setOptions(['Landscape', 'Portrait', 'Square']);
+        }
+    }
+
+    initComboBoxes();
+
     function loadBrowseFilters() {
         if (browseFiltersLoaded) return;
         browseFiltersLoaded = true;
         fetch('/Home/ArtPrintFilters')
-            .then(r => r.json())
-            .then(data => {
-                populateFilterSelect('filter-vendor', data.vendors);
-                populateFilterSelect('filter-artist', data.artists);
-                populateFilterSelect('filter-genre', data.genres);
-                populateFilterSelect('filter-style', data.styles);
-                populateFilterSelect('filter-mood', data.moods);
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (comboBoxInstances.vendor) comboBoxInstances.vendor.setOptions(data.vendors || []);
+                if (comboBoxInstances.artist) comboBoxInstances.artist.setOptions(data.artists || []);
+                if (comboBoxInstances.genre) comboBoxInstances.genre.setOptions(data.genres || []);
+                if (comboBoxInstances.style) comboBoxInstances.style.setOptions(data.styles || []);
+                if (comboBoxInstances.mood) comboBoxInstances.mood.setOptions(data.moods || []);
             })
-            .catch(() => {});
-    }
-
-    function populateFilterSelect(id, options) {
-        var sel = document.getElementById(id);
-        if (!sel || !options) return;
-        var first = sel.options[0];
-        sel.innerHTML = '';
-        sel.appendChild(first);
-        options.forEach(opt => {
-            var o = document.createElement('option');
-            o.value = opt;
-            o.textContent = opt;
-            sel.appendChild(o);
-        });
+            .catch(function() {});
     }
 
     // === Browse: Toggle Filters ===
@@ -1716,6 +1847,14 @@
         var panel = document.getElementById('browse-filter-panel');
         panel.classList.toggle('hidden');
     };
+
+    // Helper to get combobox value or fall back to input value
+    function getFilterValue(key) {
+        var cb = comboBoxInstances[key];
+        if (cb) return cb.getValue();
+        var el = document.getElementById('filter-' + key);
+        return el ? el.value : '';
+    }
 
     // === Browse: Load Art Prints ===
     window.loadArtPrints = function(reset) {
@@ -1733,12 +1872,12 @@
 
         var params = new URLSearchParams();
         var q = document.getElementById('browse-query')?.value;
-        var vendor = document.getElementById('filter-vendor')?.value;
-        var artist = document.getElementById('filter-artist')?.value;
-        var genre = document.getElementById('filter-genre')?.value;
-        var style = document.getElementById('filter-style')?.value;
-        var mood = document.getElementById('filter-mood')?.value;
-        var orientation = document.getElementById('filter-orientation')?.value;
+        var vendor = getFilterValue('vendor');
+        var artist = getFilterValue('artist');
+        var genre = getFilterValue('genre');
+        var style = getFilterValue('style');
+        var mood = getFilterValue('mood');
+        var orientation = getFilterValue('orientation');
 
         if (q) params.set('query', q);
         if (vendor) params.set('vendor', vendor);
@@ -1751,8 +1890,8 @@
         params.set('pageSize', 24);
 
         fetch('/Home/BrowseArtPrints?' + params)
-            .then(r => r.json())
-            .then(data => {
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
                 renderPrintCards(data.prints, false);
                 document.getElementById('browse-info').textContent =
                     data.totalCount + ' prints found' + (data.totalPages > 1 ? ' (page ' + data.page + '/' + data.totalPages + ')' : '');
@@ -1760,10 +1899,10 @@
                 artPrintHasMore = data.page < data.totalPages;
                 updateActiveFilterChips();
             })
-            .catch(e => {
+            .catch(function() {
                 document.getElementById('browse-info').textContent = 'Error loading prints';
             })
-            .finally(() => {
+            .finally(function() {
                 artPrintLoading = false;
                 if (loadEl) loadEl.classList.add('hidden');
             });
@@ -1774,7 +1913,7 @@
         var grid = document.getElementById(containerId || 'browse-prints-grid');
         if (clear) grid.innerHTML = '';
 
-        prints.forEach(p => {
+        prints.forEach(function(p) {
             var card = document.createElement('div');
             card.className = 'print-card';
             card.onclick = function() { showPrintDetail(p); };
@@ -1799,25 +1938,26 @@
         container.innerHTML = '';
 
         var filters = [
-            { id: 'filter-vendor', label: 'Vendor' },
-            { id: 'filter-artist', label: 'Artist' },
-            { id: 'filter-genre', label: 'Genre' },
-            { id: 'filter-style', label: 'Style' },
-            { id: 'filter-mood', label: 'Mood' },
-            { id: 'filter-orientation', label: 'Orientation' }
+            { key: 'vendor', label: 'Vendor' },
+            { key: 'artist', label: 'Artist' },
+            { key: 'genre', label: 'Genre' },
+            { key: 'style', label: 'Style' },
+            { key: 'mood', label: 'Mood' },
+            { key: 'orientation', label: 'Orientation' }
         ];
 
-        filters.forEach(f => {
-            var val = document.getElementById(f.id)?.value;
+        filters.forEach(function(f) {
+            var val = getFilterValue(f.key);
             if (val) {
                 var chip = document.createElement('span');
                 chip.className = 'filter-chip';
                 chip.innerHTML = esc(f.label) + ': ' + esc(val) +
-                    ' <span class="filter-chip-remove" data-filter="' + f.id + '">&times;</span>';
-                chip.querySelector('.filter-chip-remove').onclick = function() {
-                    document.getElementById(f.id).value = '';
+                    ' <span class="filter-chip-remove">&times;</span>';
+                chip.querySelector('.filter-chip-remove').addEventListener('click', function() {
+                    var cb = comboBoxInstances[f.key];
+                    if (cb) cb.clear();
                     loadArtPrints(true);
-                };
+                });
                 container.appendChild(chip);
             }
         });
@@ -1839,12 +1979,6 @@
             if (e.key === 'Enter') loadArtPrints(true);
         });
     }
-
-    // === Browse: Filter change handlers ===
-    ['filter-vendor', 'filter-artist', 'filter-genre', 'filter-style', 'filter-mood', 'filter-orientation'].forEach(id => {
-        var el = document.getElementById(id);
-        if (el) el.addEventListener('change', function() { loadArtPrints(true); });
-    });
 
     // =========================================================================
     // DISCOVERY WIZARD

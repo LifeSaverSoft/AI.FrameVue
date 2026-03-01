@@ -194,32 +194,51 @@
         <div class="filter-grid">
             <div class="filter-group">
                 <label>Vendor</label>
-                <select id="filter-vendor"><option value="">All Vendors</option></select>
+                <div class="combobox-wrap" id="cb-vendor-wrap">
+                    <input type="text" id="filter-vendor" class="combobox-input" placeholder="All Vendors" autocomplete="off" />
+                    <button class="combobox-clear" type="button">&times;</button>
+                    <div class="combobox-dropdown" id="filter-vendor-dropdown"></div>
+                </div>
             </div>
             <div class="filter-group">
                 <label>Artist</label>
-                <select id="filter-artist"><option value="">All Artists</option></select>
+                <div class="combobox-wrap" id="cb-artist-wrap">
+                    <input type="text" id="filter-artist" class="combobox-input" placeholder="All Artists" autocomplete="off" />
+                    <button class="combobox-clear" type="button">&times;</button>
+                    <div class="combobox-dropdown" id="filter-artist-dropdown"></div>
+                </div>
             </div>
             <div class="filter-group">
                 <label>Genre</label>
-                <select id="filter-genre"><option value="">All Genres</option></select>
+                <div class="combobox-wrap" id="cb-genre-wrap">
+                    <input type="text" id="filter-genre" class="combobox-input" placeholder="All Genres" autocomplete="off" />
+                    <button class="combobox-clear" type="button">&times;</button>
+                    <div class="combobox-dropdown" id="filter-genre-dropdown"></div>
+                </div>
             </div>
             <div class="filter-group">
                 <label>Style</label>
-                <select id="filter-style"><option value="">All Styles</option></select>
+                <div class="combobox-wrap" id="cb-style-wrap">
+                    <input type="text" id="filter-style" class="combobox-input" placeholder="All Styles" autocomplete="off" />
+                    <button class="combobox-clear" type="button">&times;</button>
+                    <div class="combobox-dropdown" id="filter-style-dropdown"></div>
+                </div>
             </div>
             <div class="filter-group">
                 <label>Mood</label>
-                <select id="filter-mood"><option value="">All Moods</option></select>
+                <div class="combobox-wrap" id="cb-mood-wrap">
+                    <input type="text" id="filter-mood" class="combobox-input" placeholder="All Moods" autocomplete="off" />
+                    <button class="combobox-clear" type="button">&times;</button>
+                    <div class="combobox-dropdown" id="filter-mood-dropdown"></div>
+                </div>
             </div>
             <div class="filter-group">
                 <label>Orientation</label>
-                <select id="filter-orientation">
-                    <option value="">All</option>
-                    <option value="landscape">Landscape</option>
-                    <option value="portrait">Portrait</option>
-                    <option value="square">Square</option>
-                </select>
+                <div class="combobox-wrap" id="cb-orientation-wrap">
+                    <input type="text" id="filter-orientation" class="combobox-input" placeholder="All" autocomplete="off" />
+                    <button class="combobox-clear" type="button">&times;</button>
+                    <div class="combobox-dropdown" id="filter-orientation-dropdown"></div>
+                </div>
             </div>
         </div>
     </div>
