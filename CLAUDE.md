@@ -1,10 +1,20 @@
 # AI.FrameVue — Project Context for Claude Code
 
+## Project Type & Technology Stack
+- **Type**: Web application — AI-powered custom picture framing advisor
+- **Backend**: ASP.NET Core 8.0, C# 12, .NET 8
+- **Frontend**: Vanilla JavaScript (IIFE pattern), HTML5/CSS3 — NOT Vue.js despite the name
+- **Database**: SQLite (EF Core 8.0 with `EnsureCreated()` — no migrations)
+- **AI**: OpenAI API — `gpt-4o-mini` (text analysis), `gpt-image-1` (image generation)
+- **Hosting**: IIS on Windows Server, deployed via rsync over SMB
+- **Source Control**: Git + GitHub
+- **Testing**: xUnit + WebApplicationFactory + MockOpenAIHandler (58 tests)
+
 ## Project Overview
-- AI-powered custom picture framing app — analyzes artwork and generates framed mockups
-- ASP.NET Core 8.0, C# 12 backend, vanilla JS frontend (NOT Vue.js despite the name)
+- Analyzes uploaded artwork and generates AI-powered frame recommendations (Good/Better/Best tiers)
+- Generates photorealistic framed mockups with mat/moulding combinations
+- Browse art print catalog with searchable filters, discovery wizard
 - Dark theme UI with gold accents, Playfair Display + Inter fonts
-- SQLite for persistence (EF Core 8.0 with `EnsureCreated()` — no migrations)
 - SQL Server (172.16.200.8) for moulding/mat catalog import source only
 - Art print tables are SQLite-only — NOT sourced from SQL Server
 - User secrets ID: `c4bff94e-1050-4c14-ae98-3bc436f34f1c`
@@ -84,12 +94,27 @@
 16. E2E test suite (58 tests, xUnit + WebApplicationFactory + MockOpenAIHandler)
 17. Deployment pipeline (Makefile with rsync + web.config touch for app pool recycle)
 
-## Current Status / Next Steps
-- Art print seed mechanism built: `SeedArtPrintsAsync` seeds Sundance Graphics (15 prints)
-- Browse filters are now searchable combo boxes (type to search + click to select from list)
-- Admin CRUD for adding more art print vendors and individual prints
-- Need more art print vendors added (Wild Apple, Galaxy of Graphics, etc.)
-- Need AI enrichment run on art prints to populate color/mood/style fields for discovery
+## Current Status (Last Updated: 2026-02-28)
+
+### What's Working in Production (ai.framevue.com)
+- Full app deployed and running on IIS
+- Art print browse with 15 Sundance Graphics prints (seeded)
+- Moulding/mat catalog imported: 58 vendors, 37,077 mouldings, 7,273 mats
+- Searchable combo box filters on all browse dropdowns (type to search + click to select)
+- Art print discovery wizard (Room -> Mood -> Colors -> Style -> Results)
+- SQLite DB path fixed to use absolute path (was failing in IIS due to relative path resolution)
+- Knowledge base loaded: 18 rules, 13 style guides, 6 examples, 5 vendors
+
+### Where We Left Off
+- Fixed production SQLite database issue (relative path `Data Source=frameVue.db` didn't resolve correctly in IIS in-process hosting — changed to absolute path using `ContentRootPath`)
+- Successfully deployed, seeded art prints, and imported catalog on production
+- All production endpoints verified working (BrowseArtPrints, ArtPrintFilters, DiscoverPrints)
+
+### What Needs to Be Done Next
+1. **Add more art print vendors** — Wild Apple, Galaxy of Graphics, Artissimo Designs, MHS Licensing (S3 folder paths need to be confirmed)
+2. **Run AI enrichment on art prints** — populate color/mood/style/description fields (currently null) for better discovery filtering
+3. **Update Training admin UI** — Art Prints tab still shows old "Import from SQL Server" UI; needs seed button and vendor/print add forms
+4. **Test searchable combo boxes in browser** — verified via API but need manual browser testing of the ComboBox UX
 
 ## User Preferences
 - Target users: gifted framers who are NOT tech-savvy (hence voice dictation, large tap targets)
@@ -99,10 +124,12 @@
 
 ## Known Issues & Fixes
 - `EnsureCreated()` doesn't add new columns — must delete `frameVue.db` and restart
+- **IIS SQLite path**: `Data Source=frameVue.db` (relative) fails in IIS in-process hosting — must use absolute path via `ContentRootPath` (fixed in Program.cs)
 - SQL Server TLS: add `TrustServerCertificate=True;Encrypt=Optional;` to connection string
 - Razor `@keyframes`: use `@@keyframes` in .cshtml files
 - rsync must use `-ru` (recursive + update), NOT `-du` (directories only — breaks deployment)
 - S3 bucket is not publicly listable (AccessDenied on list requests)
+- Xcode license on macOS can block `python3` and `make` — use `dotnet publish`, `rsync`, `touch` separately as workaround
 
 ## Test Suite
 - Location: `AI.FrameVue.Tests/`

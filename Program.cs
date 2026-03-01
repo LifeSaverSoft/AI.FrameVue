@@ -21,9 +21,15 @@ builder.Services.AddScoped<CatalogEnrichmentService>();
 // HttpClient factory for S3 downloads
 builder.Services.AddHttpClient();
 
-// SQLite database
+// SQLite database — resolve path relative to content root for IIS compatibility
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=frameVue.db";
+if (connectionString.Contains("Data Source=frameVue.db"))
+{
+    var dbPath = Path.Combine(builder.Environment.ContentRootPath, "frameVue.db");
+    connectionString = $"Data Source={dbPath}";
+}
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlite(connectionString));
 
 // Allow up to 20 MB uploads
 builder.WebHost.ConfigureKestrel(options =>
