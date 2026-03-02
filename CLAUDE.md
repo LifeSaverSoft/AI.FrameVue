@@ -8,7 +8,8 @@
 - **AI**: OpenAI API — `gpt-4o-mini` (text analysis), `gpt-4o` + `image_generation` tool (image generation via Responses API)
 - **Hosting**: IIS on Windows Server, deployed via rsync over SMB
 - **Source Control**: Git + GitHub
-- **Testing**: xUnit + WebApplicationFactory + MockOpenAIHandler (64 tests)
+- **Testing**: xUnit + WebApplicationFactory + MockOpenAIHandler (64 unit tests), Playwright E2E tests (98 tests)
+- **E2E**: Playwright (Node.js + TypeScript) in `e2e/` directory
 
 ## Project Overview
 - Analyzes uploaded artwork and generates AI-powered frame recommendations (Good/Better/Best tiers)
@@ -21,6 +22,8 @@
 
 ## Workflow Rules (MUST FOLLOW)
 - **ALWAYS test E2E and API endpoints before committing and pushing to GitHub**
+- **ALWAYS write Playwright E2E tests for every new feature** — `e2e/tests/` directory, run with `cd e2e && npx playwright test`
+- **ALWAYS auto-commit and auto-push to GitHub** after completing work — do not wait to be asked
 - **ALWAYS read server logs** at `/volumes/Websites/FrameVue_AI/logs/` when debugging production issues
 - **Commit and push regularly** without being asked — don't let work pile up
 - **Deploy to production** when features are complete: `make deploy/prod`
@@ -153,7 +156,18 @@
 
 ## Test Suite
 - Location: `AI.FrameVue.Tests/`
-- Run: `dotnet test AI.FrameVue.Tests/`
+- Run: `dotnet test AI.FrameVue.Tests/` or `make test/unit`
 - 64 tests: HomeController (29), TrainingController (18), KnowledgeBaseService (9), CatalogImportService (8)
 - Uses `TestWebApplicationFactory` with in-memory SQLite, `MockOpenAIHandler` for all OpenAI calls
 - All tests run without network access (~450ms)
+
+## Playwright E2E Tests
+- Location: `e2e/` (Node.js/TypeScript project)
+- Run: `cd e2e && npx playwright test`
+- Config: `e2e/playwright.config.ts` — targets `http://localhost:5191`, auto-starts `dotnet run`
+- Specs: `e2e/tests/*.spec.ts` — one file per major app section
+- 98 tests across 7 spec files: home, upload-analyze, browse-prints, discovery-wizard, room-advisor, guide, training-admin, browse-catalog, api-endpoints
+- Covers: Home/mode-selector, Upload flow, Browse prints, Discovery wizard, Room Advisor, Print detail modal, Training admin auth/tabs/CRUD, Catalog browse, User Guide, all API endpoints
+- **Rule**: Every new feature MUST include new or updated Playwright specs
+- Test fixtures: `e2e/fixtures/test-artwork.png`, `e2e/fixtures/test-room.png`
+- Reports: `e2e/playwright-report/index.html` (generated after each run)
