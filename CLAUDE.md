@@ -4,7 +4,7 @@
 - **Type**: Web application — AI-powered custom picture framing advisor
 - **Backend**: ASP.NET Core 8.0, C# 12, .NET 8
 - **Frontend**: Vanilla JavaScript (IIFE pattern), HTML5/CSS3 — NOT Vue.js despite the name
-- **Database**: SQLite (EF Core 8.0 with `EnsureCreated()` — no migrations)
+- **Database**: SQLite (EF Core 8.0 with Migrations — auto-applied at startup via `Database.Migrate()`)
 - **AI**: OpenAI API — `gpt-4o-mini` (text analysis), `gpt-4o` + `image_generation` tool (image generation via Responses API)
 - **Hosting**: IIS on Windows Server, deployed via rsync over SMB
 - **Source Control**: Git + GitHub
@@ -28,7 +28,7 @@
 - **Commit and push regularly** without being asked — don't let work pile up
 - **Deploy to production** when features are complete: `make deploy/prod`
 - **Server volume must be mounted** via Finder Cmd+K before deployment
-- **Delete `frameVue.db`** when model fields change (EnsureCreated limitation)
+- **Run `dotnet ef migrations add <Name> --project AI.FrameVue.csproj`** when model fields change, then commit the migration files
 - **Update this file** when architectural decisions are made or features are completed
 
 ## Architecture
@@ -60,6 +60,7 @@
 | `Models/CatalogModels.cs` | CatalogVendor, CatalogMoulding, CatalogMat, CatalogArtPrintVendor, CatalogArtPrint |
 | `Models/KnowledgeModels.cs` | Knowledge base DTOs, RoomAnalysis, RoomArtRecommendation, RoomFramingRecommendation, RoomSession, RoomStyleGuide |
 | `KnowledgeBase/room-style-guides.json` | 8 room style guides (modern, traditional, farmhouse, mid-century, minimalist, industrial, coastal, bohemian) |
+| `Migrations/` | EF Core migration history (auto-generated, do not hand-edit) |
 
 ### Deployment
 - **Production**: `make deploy/prod` -> dotnet publish Release -> rsync to `/volumes/Websites/FrameVue_AI` -> web.config touch (app pool recycle)
@@ -108,6 +109,7 @@
 25. Server-side catalog matching — FrameOne automatically populates real vendor product numbers (ItemName/SKU) using color-distance + keyword matching against enriched catalog; "Source Products" button only shows as fallback
 26. Training admin tab restructure — split Vendor Catalog into 3 tabs: Browse Catalog, Import, AI Enrichment
 27. Browse filter fix — ComboBox getFilterValue falls back to input text when no dropdown selection made
+28. EF Core Migrations — replaced `EnsureCreated()` with `Database.Migrate()` for incremental schema updates without data loss
 
 ## Current Status (Last Updated: 2026-03-03)
 
@@ -128,15 +130,12 @@
 - Art print cards show styled placeholders with title/artist/genre when S3 images unavailable
 
 ### Where We Left Off
-- Added server-side catalog matching: FrameOne auto-populates real vendor product numbers (ItemName/SKU) using color-distance + keyword matching
-- Fixed browse filter bug: ComboBox getFilterValue now falls back to typed input text
-- Fixed moulding images: `object-fit: contain` shows full moulding length
-- Split Training Admin Vendor Catalog into 3 tabs: Browse Catalog, Import, AI Enrichment
+- Switched from `EnsureCreated()` to EF Core Migrations — no more deleting `frameVue.db` on schema changes
+- Deployed to production, deleted old `frameVue.db` (needs re-import of catalog and re-seed of art prints)
 - 64 unit tests + 100 Playwright E2E tests passing
-- Not yet deployed to production — needs `frameVue.db` deletion (new RoomSessions table)
 
 ### What Needs to Be Done Next
-1. **Deploy to production** — `make deploy/prod`, delete production `frameVue.db`, re-import catalog, re-seed art prints
+1. **Re-import catalog and re-seed art prints** — via Training admin after production DB was recreated
 2. **S3 image accessibility** — S3 bucket is private (403 on ALL requests, both mouldings and art prints); need AWS credentials or bucket policy change. No images display in browser currently.
 3. **Color normalization Layer 3** — server-side RGB channel normalization as fallback (documented in `Docs/color-normalization-plan.md`)
 4. **Add more prints per vendor** — currently 15 each, use admin CRUD to add more over time
@@ -149,7 +148,9 @@
 - All filters that come from the database should let users either type to search OR select from a list
 
 ## Known Issues & Fixes
-- `EnsureCreated()` doesn't add new columns — must delete `frameVue.db` and restart
+- Schema changes require a new migration: `dotnet ef migrations add <Name> --project AI.FrameVue.csproj`
+- Migrations are applied automatically at startup via `Database.Migrate()`
+- Tests continue to use `EnsureCreated()` for fresh ephemeral databases
 - **IIS SQLite path**: `Data Source=frameVue.db` (relative) fails in IIS in-process hosting — must use absolute path via `ContentRootPath` (fixed in Program.cs)
 - SQL Server TLS: add `TrustServerCertificate=True;Encrypt=Optional;` to connection string
 - Razor `@keyframes`: use `@@keyframes` in .cshtml files
