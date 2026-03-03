@@ -914,6 +914,241 @@ public class KnowledgeBaseService
         return string.Join("\n", lines);
     }
 
+    // === Server-Side Catalog Matching for Frame Products ===
+
+    /// <summary>
+    /// Match AI-generated frame products against real catalog items using color distance + keyword matching.
+    /// Returns the same products list with ItemNumber and Product populated from catalog.
+    /// </summary>
+    public List<FrameProduct> MatchCatalogProductsForFrame(
+        List<FrameProduct> aiProducts,
+        List<string> artworkColors,
+        string tier)
+    {
+        if (aiProducts.Count == 0) return aiProducts;
+
+        var artRgbs = artworkColors
+            .Select(HexToRgb)
+            .Where(c => c.HasValue)
+            .Select(c => c!.Value)
+            .ToList();
+
+        var vendorNames = GetVendorNamesForTier(tier);
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            foreach (var product in aiProducts)
+            {
+                if (string.Equals(product.Type, "Moulding", StringComparison.OrdinalIgnoreCase))
+                {
+                    var match = FindBestMouldingMatch(db, product, artRgbs, vendorNames);
+                    if (match != null)
+                    {
+                        product.ItemNumber = match.ItemName;
+                        product.Product = FormatProductDescription(match.VendorName, match.Description, match.Style, match.Profile);
+                        if (!string.IsNullOrEmpty(match.FinishType))
+                            product.Finish = match.FinishType;
+                    }
+                }
+                else if (string.Equals(product.Type, "Mat", StringComparison.OrdinalIgnoreCase))
+                {
+                    var match = FindBestMatMatch(db, product, artRgbs, vendorNames);
+                    if (match != null)
+                    {
+                        product.ItemNumber = match.ItemName;
+                        product.Product = FormatProductDescription(match.VendorName, match.MatClass, match.Material, null);
+                        if (!string.IsNullOrEmpty(match.FinishType))
+                            product.Finish = match.FinishType;
+                    }
+                }
+            }
+
+            return aiProducts;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Catalog matching for frame products failed");
+            return aiProducts;
+        }
+    }
+
+    private CatalogMoulding? FindBestMouldingMatch(
+        AppDbContext db,
+        FrameProduct product,
+        List<(int R, int G, int B)> artRgbs,
+        List<string> tierVendors)
+    {
+        // Build candidate set: filter by vendor name (AI vendor or tier vendors)
+        var candidates = db.CatalogMouldings
+            .Where(m => m.PrimaryColorHex != null)
+            .AsEnumerable()
+            .Where(m => MatchesVendor(m.VendorName, product.Vendor, tierVendors))
+            .ToList();
+
+        if (candidates.Count == 0)
+        {
+            // Fallback: search all enriched mouldings across all vendors
+            candidates = db.CatalogMouldings
+                .Where(m => m.PrimaryColorHex != null)
+                .AsEnumerable()
+                .ToList();
+        }
+
+        if (candidates.Count == 0) return null;
+
+        // Extract keywords from the AI's description for keyword matching
+        var keywords = ExtractKeywords(product.Finish, product.Description, product.Product);
+
+        // Score each candidate
+        CatalogMoulding? best = null;
+        double bestScore = double.MaxValue;
+
+        foreach (var m in candidates)
+        {
+            double score = 0;
+
+            // Color distance (lower = better)
+            if (artRgbs.Count > 0)
+            {
+                var productRgb = HexToRgb(m.PrimaryColorHex!);
+                if (productRgb.HasValue)
+                {
+                    var minDist = artRgbs.Min(art => ColorDistance(art, productRgb.Value));
+                    score += minDist; // 0-441 range
+                }
+            }
+
+            // Keyword match bonus (reduce score for matches)
+            var keywordScore = ScoreKeywordMatch(keywords,
+                m.ColorCategory, m.PrimaryColorName, m.FinishType,
+                m.Style, m.Profile, m.Description);
+            score -= keywordScore * 50; // Each keyword match reduces score by 50
+
+            if (score < bestScore)
+            {
+                bestScore = score;
+                best = m;
+            }
+        }
+
+        return best;
+    }
+
+    private CatalogMat? FindBestMatMatch(
+        AppDbContext db,
+        FrameProduct product,
+        List<(int R, int G, int B)> artRgbs,
+        List<string> tierVendors)
+    {
+        var candidates = db.CatalogMats
+            .Where(m => m.PrimaryColorHex != null)
+            .AsEnumerable()
+            .Where(m => MatchesVendor(m.VendorName, product.Vendor, tierVendors))
+            .ToList();
+
+        if (candidates.Count == 0)
+        {
+            candidates = db.CatalogMats
+                .Where(m => m.PrimaryColorHex != null)
+                .AsEnumerable()
+                .ToList();
+        }
+
+        if (candidates.Count == 0) return null;
+
+        var keywords = ExtractKeywords(product.Finish, product.Description, product.Product);
+
+        CatalogMat? best = null;
+        double bestScore = double.MaxValue;
+
+        foreach (var m in candidates)
+        {
+            double score = 0;
+
+            if (artRgbs.Count > 0)
+            {
+                var productRgb = HexToRgb(m.PrimaryColorHex!);
+                if (productRgb.HasValue)
+                {
+                    var minDist = artRgbs.Min(art => ColorDistance(art, productRgb.Value));
+                    score += minDist;
+                }
+            }
+
+            var keywordScore = ScoreKeywordMatch(keywords,
+                m.ColorCategory, m.PrimaryColorName, m.FinishType,
+                m.MatClass, m.Material, m.Description);
+            score -= keywordScore * 50;
+
+            if (score < bestScore)
+            {
+                bestScore = score;
+                best = m;
+            }
+        }
+
+        return best;
+    }
+
+    private static bool MatchesVendor(string catalogVendor, string aiVendor, List<string> tierVendors)
+    {
+        if (!string.IsNullOrEmpty(aiVendor) &&
+            catalogVendor.Contains(aiVendor, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return tierVendors.Any(tv =>
+            catalogVendor.Contains(tv, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static HashSet<string> ExtractKeywords(params string?[] sources)
+    {
+        var keywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var stopWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "the", "a", "an", "and", "or", "in", "on", "of", "to", "for", "with", "that", "this", "is", "are"
+        };
+
+        foreach (var source in sources)
+        {
+            if (string.IsNullOrWhiteSpace(source)) continue;
+            var words = source.Split(new[] { ' ', ',', '-', '/', '(', ')', '.', ';' },
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (var word in words)
+            {
+                if (word.Length > 2 && !stopWords.Contains(word))
+                    keywords.Add(word);
+            }
+        }
+        return keywords;
+    }
+
+    private static int ScoreKeywordMatch(HashSet<string> keywords, params string?[] fields)
+    {
+        int matches = 0;
+        foreach (var field in fields)
+        {
+            if (string.IsNullOrWhiteSpace(field)) continue;
+            foreach (var keyword in keywords)
+            {
+                if (field.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                    matches++;
+            }
+        }
+        return matches;
+    }
+
+    private static string FormatProductDescription(string vendor, string? field1, string? field2, string? field3)
+    {
+        var parts = new List<string> { vendor };
+        if (!string.IsNullOrEmpty(field1)) parts.Add(field1);
+        if (!string.IsNullOrEmpty(field2)) parts.Add(field2);
+        if (!string.IsNullOrEmpty(field3)) parts.Add(field3);
+        return string.Join(" — ", parts);
+    }
+
     // === Stats ===
 
     public object GetStats()

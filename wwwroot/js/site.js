@@ -405,7 +405,7 @@
                     '<div class="product-type-label">' + esc(p.type) + '</div>' +
                     '<div class="product-vendor-name">' + esc(p.vendor) + '</div>' +
                     '<div class="product-line">' + esc(p.product) + '</div>' +
-                    '<div class="product-item-number hidden"></div>' +
+                    (p.itemNumber ? '<div class="product-item-number">Item #' + esc(p.itemNumber) + '</div>' : '<div class="product-item-number hidden"></div>') +
                     (p.finish ? '<div class="product-finish">' + esc(p.finish) + '</div>' : '') +
                     (p.description ? '<div class="product-desc">' + esc(p.description) + '</div>' : '') +
                 '</div>'
@@ -429,6 +429,7 @@
         var tier = tierNames[number - 1] || '';
 
         var hasProducts = option.products && option.products.length > 0;
+        var hasAllItemNumbers = hasProducts && option.products.every(function(p) { return p.itemNumber; });
 
         card.innerHTML =
             '<div class="frame-card-header">' +
@@ -454,7 +455,7 @@
                 '<h4>Design Details</h4>' +
                 (productsHtml || '<p style="color:var(--text-muted);font-size:0.85rem;">Design details not available</p>') +
                 '<div class="card-actions">' +
-                    (hasProducts
+                    (hasProducts && !hasAllItemNumbers
                         ? '<button class="btn-card-action btn-source" type="button">' +
                               '<svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M10 2v6m0 0l3-3m-3 3L7 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 10v5a2 2 0 002 2h10a2 2 0 002-2v-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>' +
                               'Source Products' +
@@ -1863,9 +1864,12 @@
     // Helper to get combobox value or fall back to input value
     function getFilterValue(key) {
         var cb = comboBoxInstances[key];
-        if (cb) return cb.getValue();
+        if (cb) {
+            var val = cb.getValue();
+            if (val) return val;
+        }
         var el = document.getElementById('filter-' + key);
-        return el ? el.value : '';
+        return el ? el.value.trim() : '';
     }
 
     // === Browse: Load Art Prints ===

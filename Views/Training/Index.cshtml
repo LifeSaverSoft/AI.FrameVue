@@ -298,9 +298,10 @@
 
         .product-card img {
             width: 100%;
-            height: 160px;
-            object-fit: cover;
+            height: 120px;
+            object-fit: contain;
             background: var(--bg-secondary);
+            padding: 8px;
         }
 
         .product-card .card-body { padding: 0.75rem; }
@@ -418,7 +419,9 @@
                 <button class="tab active" onclick="showTab('rules')">Framing Rules</button>
                 <button class="tab" onclick="showTab('guides')">Style Guides</button>
                 <button class="tab" onclick="showTab('examples')">Training Examples</button>
-                <button class="tab" onclick="showTab('catalog')">Vendor Catalog</button>
+                <button class="tab" onclick="showTab('catalog')">Browse Catalog</button>
+                <button class="tab" onclick="showTab('import')">Import</button>
+                <button class="tab" onclick="showTab('enrich')">AI Enrichment</button>
                 <button class="tab" onclick="showTab('artprints')">Art Prints</button>
             </div>
 
@@ -566,8 +569,51 @@
                 </div>
                 <div id="examplesList"></div>
             </div>
-            <!-- === VENDOR CATALOG === -->
+            <!-- === BROWSE CATALOG === -->
             <div id="catalogSection" class="section">
+                <h3 style="color: var(--accent); margin: 0 0 1rem; font-family: 'Playfair Display', serif;">Browse Catalog</h3>
+
+                <div style="margin-bottom: 1rem;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Type</label>
+                            <select id="browseType" onchange="browseCatalog(1)">
+                                <option value="mouldings">Mouldings</option>
+                                <option value="mats">Mats</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Vendor</label>
+                            <input type="text" id="browseVendor" placeholder="e.g., Larson Juhl" />
+                        </div>
+                        <div class="form-group">
+                            <label>Color</label>
+                            <input type="text" id="browseColor" placeholder="e.g., Gold, Black" />
+                        </div>
+                        <div class="form-group">
+                            <label>Style / Material</label>
+                            <input type="text" id="browseStyle" placeholder="e.g., Traditional" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Finish Type</label>
+                            <input type="text" id="browseFinish" placeholder="e.g., distressed, glossy" />
+                        </div>
+                        <div class="form-group" style="display:flex; align-items:flex-end; gap:0.5rem;">
+                            <button class="btn btn-primary" onclick="browseCatalog(1)">Search</button>
+                            <button class="btn" style="background:var(--bg-secondary); color:var(--text-secondary); border:1px solid var(--border);" onclick="clearBrowse()">Clear</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="browseInfo" style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.75rem;"></div>
+                <div id="browseResults" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:1rem;"></div>
+                <div id="browsePagination" style="display:flex; justify-content:center; gap:0.5rem; margin-top:1.5rem;"></div>
+            </div>
+
+            <!-- === IMPORT CATALOG === -->
+            <div id="importSection" class="section">
                 <div class="add-form">
                     <h3>Import Catalog from SQL Server</h3>
                     <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.85rem;">
@@ -605,9 +651,11 @@
                     <button class="btn btn-primary" id="importCatalogBtn" onclick="importCatalog()">Import Catalog</button>
                     <span id="importStatus" style="margin-left: 1rem; font-size: 0.85rem; color: var(--text-secondary);"></span>
                 </div>
+            </div>
 
-                <!-- Enrichment -->
-                <div class="add-form" style="margin-top: 1.5rem;">
+            <!-- === AI ENRICHMENT === -->
+            <div id="enrichSection" class="section">
+                <div class="add-form">
                     <h3>AI Color Enrichment</h3>
                     <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.85rem;">
                         Downloads each product image from S3 and uses AI vision to analyze colors, finish type, and temperature.
@@ -647,47 +695,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Browse Catalog -->
-                <h3 style="color: var(--accent); margin: 1.5rem 0 1rem; font-family: 'Playfair Display', serif;">Browse Catalog</h3>
-
-                <div style="margin-bottom: 1rem;">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Type</label>
-                            <select id="browseType" onchange="browseCatalog(1)">
-                                <option value="mouldings">Mouldings</option>
-                                <option value="mats">Mats</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Vendor</label>
-                            <input type="text" id="browseVendor" placeholder="e.g., Larson Juhl" />
-                        </div>
-                        <div class="form-group">
-                            <label>Color</label>
-                            <input type="text" id="browseColor" placeholder="e.g., Gold, Black" />
-                        </div>
-                        <div class="form-group">
-                            <label>Style / Material</label>
-                            <input type="text" id="browseStyle" placeholder="e.g., Traditional" />
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Finish Type</label>
-                            <input type="text" id="browseFinish" placeholder="e.g., distressed, glossy" />
-                        </div>
-                        <div class="form-group" style="display:flex; align-items:flex-end; gap:0.5rem;">
-                            <button class="btn btn-primary" onclick="browseCatalog(1)">Search</button>
-                            <button class="btn" style="background:var(--bg-secondary); color:var(--text-secondary); border:1px solid var(--border);" onclick="clearBrowse()">Clear</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="browseInfo" style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.75rem;"></div>
-                <div id="browseResults" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:1rem;"></div>
-                <div id="browsePagination" style="display:flex; justify-content:center; gap:0.5rem; margin-top:1.5rem;"></div>
             </div>
 
             <!-- === ART PRINTS === -->

@@ -8,7 +8,7 @@
 - **AI**: OpenAI API — `gpt-4o-mini` (text analysis), `gpt-4o` + `image_generation` tool (image generation via Responses API)
 - **Hosting**: IIS on Windows Server, deployed via rsync over SMB
 - **Source Control**: Git + GitHub
-- **Testing**: xUnit + WebApplicationFactory + MockOpenAIHandler (64 unit tests), Playwright E2E tests (98 tests)
+- **Testing**: xUnit + WebApplicationFactory + MockOpenAIHandler (64 unit tests), Playwright E2E tests (100 tests)
 - **E2E**: Playwright (Node.js + TypeScript) in `e2e/` directory
 
 ## Project Overview
@@ -47,13 +47,13 @@
 | File | Purpose |
 |------|---------|
 | `Services/OpenAIFramingService.cs` | Core AI: two-pass analysis, knowledge injection, image generation, wall refine, color matching |
-| `Services/KnowledgeBaseService.cs` | Knowledge base CRUD, file watcher, SQLite catalog queries, prompt building, color-distance matching |
+| `Services/KnowledgeBaseService.cs` | Knowledge base CRUD, file watcher, SQLite catalog queries, prompt building, color-distance matching, server-side catalog product matching for framing recommendations |
 | `Services/CatalogImportService.cs` | SQL Server -> SQLite import (mouldings/mats only), art print search/filter/browse |
 | `Services/CatalogEnrichmentService.cs` | AI image analysis via OpenAI vision for catalog items and art prints |
 | `Controllers/HomeController.cs` | Main app: Analyze, FrameOne, WallPreview, WallRefine, SourceProducts, Feedback, StyleCount, BrowseArtPrints, ArtPrintFilters, DiscoverPrints, SimilarPrints, AnalyzePrint, AnalyzeRoom |
 | `Controllers/TrainingController.cs` | Admin: Rules/Guides/Examples CRUD, catalog import, enrichment, browse, art print management |
 | `Views/Home/Index.cshtml` | Main app UI — upload, browse, discover, framing, comparison, feedback, wall preview, print detail modal |
-| `Views/Training/Index.cshtml` | Training admin — standalone page with tabs for all admin functions |
+| `Views/Training/Index.cshtml` | Training admin — standalone page with 7 tabs: Rules, Guides, Examples, Browse Catalog, Import, AI Enrichment, Art Prints |
 | `wwwroot/js/site.js` | IIFE: upload, analyze, frame generation, 3D viewer (Three.js), wall viewer, comparison, browse, discover wizard |
 | `wwwroot/css/site.css` | Dark theme, gold accents, all component styles |
 | `Data/AppDbContext.cs` | EF Core: DesignSessions, DesignOptions, Feedback, CatalogVendors, CatalogMouldings, CatalogMats, ArtPrintVendors, ArtPrints, RoomSessions |
@@ -84,7 +84,7 @@
 1. Knowledge base foundation (5 JSON files, CRUD, file watcher)
 2. Image generation with gpt-image-1 (high/medium quality settings)
 3. Two-pass analysis with knowledge injection (RAG-style)
-4. Training admin UI (key-protected, tabbed: Rules/Guides/Examples/Catalog/Art Prints)
+4. Training admin UI (key-protected, 7 tabs: Rules/Guides/Examples/Browse Catalog/Import/AI Enrichment/Art Prints)
 5. Persistence & feedback (SQLite, thumbs up/down)
 6. SQL Server catalog import (mouldings/mats from LifeSaverVendor)
 7. Voice dictation (Web Speech API on all admin inputs)
@@ -105,8 +105,11 @@
 22. Art print card placeholders — styled fallback when S3 images unavailable
 23. AI art print enrichment — all 45 prints enriched with colors, moods, styles, descriptions (metadata-based fallback for private S3)
 24. Room Style Advisor — "Style My Room" mode (4th top-level button) + Discovery Wizard "Start with Room Photo" shortcut; two-pass room analysis (detection + knowledge-injected recommendations); color normalization for room photos (estimatedTrueWallColorHex, estimatedTrueRoomColors); weighted multi-criteria art print scoring (color 4x, mood 3x, style 3x, genre 2x, temp 2x, orientation 1x); 8 room style knowledge guides; RoomSession persistence
+25. Server-side catalog matching — FrameOne automatically populates real vendor product numbers (ItemName/SKU) using color-distance + keyword matching against enriched catalog; "Source Products" button only shows as fallback
+26. Training admin tab restructure — split Vendor Catalog into 3 tabs: Browse Catalog, Import, AI Enrichment
+27. Browse filter fix — ComboBox getFilterValue falls back to input text when no dropdown selection made
 
-## Current Status (Last Updated: 2026-03-01)
+## Current Status (Last Updated: 2026-03-03)
 
 ### What's Working in Production (ai.framevue.com)
 - Full app deployed and running on IIS
@@ -125,19 +128,19 @@
 - Art print cards show styled placeholders with title/artist/genre when S3 images unavailable
 
 ### Where We Left Off
-- Implemented Room Style Advisor feature — "Style My Room" mode + Discovery Wizard room photo shortcut
-- Two-pass room analysis: Pass 1 detects room style/colors/mood/lighting with color normalization; Pass 2 injects room-style knowledge + generates art/framing recommendations
-- Added 8 room style knowledge guides (modern, traditional, farmhouse, mid-century, minimalist, industrial, coastal, bohemian)
-- Weighted art print scoring algorithm matches catalog prints to room analysis
-- 64 tests passing (58 original + 6 new room analysis tests)
+- Added server-side catalog matching: FrameOne auto-populates real vendor product numbers (ItemName/SKU) using color-distance + keyword matching
+- Fixed browse filter bug: ComboBox getFilterValue now falls back to typed input text
+- Fixed moulding images: `object-fit: contain` shows full moulding length
+- Split Training Admin Vendor Catalog into 3 tabs: Browse Catalog, Import, AI Enrichment
+- 64 unit tests + 100 Playwright E2E tests passing
 - Not yet deployed to production — needs `frameVue.db` deletion (new RoomSessions table)
 
 ### What Needs to Be Done Next
-1. **Deploy Room Style Advisor** — `make deploy/prod`, delete production `frameVue.db`, re-import catalog, re-seed art prints
+1. **Deploy to production** — `make deploy/prod`, delete production `frameVue.db`, re-import catalog, re-seed art prints
 2. **S3 image accessibility** — S3 bucket is private (403 on ALL requests, both mouldings and art prints); need AWS credentials or bucket policy change. No images display in browser currently.
 3. **Color normalization Layer 3** — server-side RGB channel normalization as fallback (documented in `Docs/color-normalization-plan.md`)
 4. **Add more prints per vendor** — currently 15 each, use admin CRUD to add more over time
-5. **Browser testing** — Room Style Advisor, Discovery Wizard room photo flow, ComboBox filters, lighting selector in production
+5. **Browser testing** — all features in production
 
 ## User Preferences
 - Target users: gifted framers who are NOT tech-savvy (hence voice dictation, large tap targets)
@@ -166,7 +169,7 @@
 - Run: `cd e2e && npx playwright test`
 - Config: `e2e/playwright.config.ts` — targets `http://localhost:5191`, auto-starts `dotnet run`
 - Specs: `e2e/tests/*.spec.ts` — one file per major app section
-- 98 tests across 7 spec files: home, upload-analyze, browse-prints, discovery-wizard, room-advisor, guide, training-admin, browse-catalog, api-endpoints
+- 100 tests across 9 spec files: home, upload-analyze, browse-prints, discovery-wizard, room-advisor, guide, training-admin, browse-catalog, api-endpoints
 - Covers: Home/mode-selector, Upload flow, Browse prints, Discovery wizard, Room Advisor, Print detail modal, Training admin auth/tabs/CRUD, Catalog browse, User Guide, all API endpoints
 - **Rule**: Every new feature MUST include new or updated Playwright specs
 - Test fixtures: `e2e/fixtures/test-artwork.png`, `e2e/fixtures/test-room.png`

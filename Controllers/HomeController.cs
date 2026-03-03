@@ -13,17 +13,20 @@ public class HomeController : Controller
     private readonly ILogger<HomeController> _logger;
     private readonly OpenAIFramingService _framingService;
     private readonly CatalogImportService _catalogImport;
+    private readonly KnowledgeBaseService _knowledgeBase;
     private readonly AppDbContext _db;
 
     public HomeController(
         ILogger<HomeController> logger,
         OpenAIFramingService framingService,
         CatalogImportService catalogImport,
+        KnowledgeBaseService knowledgeBase,
         AppDbContext db)
     {
         _logger = logger;
         _framingService = framingService;
         _catalogImport = catalogImport;
+        _knowledgeBase = knowledgeBase;
         _db = db;
     }
 
@@ -159,6 +162,24 @@ public class HomeController : Controller
         try
         {
             var option = await _framingService.FrameImageOneAsync(imageData, image.ContentType, styleIndex, analysis);
+
+            // Map style index to tier name for catalog matching
+            var tierName = styleIndex switch
+            {
+                0 => "Good",
+                1 => "Better",
+                2 => "Best",
+                _ => "Good"
+            };
+
+            // Use true colors if available, fall back to dominant colors
+            var artColors = analysis.EstimatedTrueColors.Count > 0
+                ? analysis.EstimatedTrueColors
+                : analysis.DominantColors;
+
+            option.Products = _knowledgeBase.MatchCatalogProductsForFrame(
+                option.Products, artColors, tierName);
+
             return Json(option);
         }
         catch (Exception ex)

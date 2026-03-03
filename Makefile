@@ -1,6 +1,6 @@
 all: deploy/prod
 
-.PHONY: deploy/prod deploy/dev build/release build/dev sync/prod sync/dev restartsite recyclepool clean
+.PHONY: deploy/prod deploy/dev build/release build/dev sync/prod sync/dev restartsite recyclepool clean test/unit test/e2e
 
 build/release:
 	dotnet publish -c Release
@@ -24,3 +24,9 @@ recyclepool:
 clean:
 	rm -r ./obj
 	rm -r ./bin
+
+test/unit:
+	dotnet test AI.FrameVue.Tests/
+
+test/e2e:
+	cd e2e && npx playwright test

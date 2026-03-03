@@ -8,7 +8,7 @@ test.describe('Browse Catalog (Training Admin)', () => {
     await page.locator('button:has-text("Enter")').click();
     await expect(page.locator('#adminUI')).toBeVisible();
     // Navigate to Vendor Catalog tab
-    await page.locator('.tab:has-text("Vendor Catalog")').click();
+    await page.locator('.tab:has-text("Browse Catalog")').click();
     await expect(page.locator('#catalogSection')).toBeVisible();
   });
 

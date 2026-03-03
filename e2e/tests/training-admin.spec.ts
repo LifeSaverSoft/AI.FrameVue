@@ -50,7 +50,9 @@ test.describe('Training Admin', () => {
     await expect(page.locator('.tab:has-text("Framing Rules")')).toBeVisible();
     await expect(page.locator('.tab:has-text("Style Guides")')).toBeVisible();
     await expect(page.locator('.tab:has-text("Examples")')).toBeVisible();
-    await expect(page.locator('.tab:has-text("Vendor Catalog")')).toBeVisible();
+    await expect(page.locator('.tab:has-text("Browse Catalog")')).toBeVisible();
+    await expect(page.locator('.tab:has-text("Import")')).toBeVisible();
+    await expect(page.locator('.tab:has-text("AI Enrichment")')).toBeVisible();
     await expect(page.locator('.tab:has-text("Art Prints")')).toBeVisible();
   });
 
@@ -72,9 +74,19 @@ test.describe('Training Admin', () => {
     await expect(page.locator('#examplesSection')).toBeVisible();
     await expect(page.locator('#guidesSection')).toBeHidden();
 
-    // Switch to Vendor Catalog
-    await page.locator('.tab:has-text("Vendor Catalog")').click();
+    // Switch to Browse Catalog
+    await page.locator('.tab:has-text("Browse Catalog")').click();
     await expect(page.locator('#catalogSection')).toBeVisible();
+
+    // Switch to Import
+    await page.locator('.tab:has-text("Import")').click();
+    await expect(page.locator('#importSection')).toBeVisible();
+    await expect(page.locator('#catalogSection')).toBeHidden();
+
+    // Switch to AI Enrichment
+    await page.locator('.tab:has-text("AI Enrichment")').click();
+    await expect(page.locator('#enrichSection')).toBeVisible();
+    await expect(page.locator('#importSection')).toBeHidden();
 
     // Switch to Art Prints
     await page.locator('.tab:has-text("Art Prints")').click();
@@ -102,17 +114,39 @@ test.describe('Training Admin', () => {
     await expect(page.locator('#guidePreferred')).toBeVisible();
   });
 
-  test('vendor catalog tab has browse and import sections', async ({ page }) => {
+  test('browse catalog tab has browse filters', async ({ page }) => {
     await page.locator('#adminKeyInput').fill('CHANGE_THIS_ADMIN_KEY');
     await page.locator('button:has-text("Enter")').click();
     await expect(page.locator('#adminUI')).toBeVisible();
 
-    await page.locator('.tab:has-text("Vendor Catalog")').click();
+    await page.locator('.tab:has-text("Browse Catalog")').click();
     await expect(page.locator('#catalogSection')).toBeVisible();
 
     // Browse section
     await expect(page.locator('#browseType')).toBeVisible();
     await expect(page.locator('#browseVendor')).toBeVisible();
+  });
+
+  test('import tab has import form and button', async ({ page }) => {
+    await page.locator('#adminKeyInput').fill('CHANGE_THIS_ADMIN_KEY');
+    await page.locator('button:has-text("Enter")').click();
+    await expect(page.locator('#adminUI')).toBeVisible();
+
+    await page.locator('.tab:has-text("Import")').click();
+    await expect(page.locator('#importSection')).toBeVisible();
+    await expect(page.locator('#importCatalogBtn')).toBeVisible();
+    await expect(page.locator('#catalogS3Base')).toBeVisible();
+  });
+
+  test('AI enrichment tab has enrichment controls', async ({ page }) => {
+    await page.locator('#adminKeyInput').fill('CHANGE_THIS_ADMIN_KEY');
+    await page.locator('button:has-text("Enter")').click();
+    await expect(page.locator('#adminUI')).toBeVisible();
+
+    await page.locator('.tab:has-text("AI Enrichment")').click();
+    await expect(page.locator('#enrichSection')).toBeVisible();
+    await expect(page.locator('#enrichBatchSize')).toBeVisible();
+    await expect(page.locator('#enrichBtn')).toBeVisible();
   });
 
   test('art prints tab has seed button and vendor form', async ({ page }) => {
