@@ -85,7 +85,7 @@ public class CatalogEnrichmentService
         {
             try
             {
-                var imageBytes = await DownloadImageAsync(item.ImageUrl!);
+                var (imageBytes, workingUrl) = await DownloadImageWithFallbackAsync(item.ImageUrl!);
                 if (imageBytes == null)
                 {
                     result.Skipped++;
@@ -93,6 +93,13 @@ public class CatalogEnrichmentService
                     // Mark as analyzed so we don't retry broken images forever
                     item.ImageAnalyzedAt = DateTime.UtcNow;
                     continue;
+                }
+
+                // Update stored URL if fallback was used
+                if (workingUrl != null && workingUrl != item.ImageUrl)
+                {
+                    _logger.LogInformation("Updated moulding {Id} ImageUrl: {Old} → {New}", item.Id, item.ImageUrl, workingUrl);
+                    item.ImageUrl = workingUrl;
                 }
 
                 var analysis = await AnalyzeImageAsync(imageBytes, "moulding");
@@ -156,13 +163,20 @@ public class CatalogEnrichmentService
         {
             try
             {
-                var imageBytes = await DownloadImageAsync(item.ImageUrl!);
+                var (imageBytes, workingUrl) = await DownloadImageWithFallbackAsync(item.ImageUrl!);
                 if (imageBytes == null)
                 {
                     result.Skipped++;
                     _logger.LogWarning("Skipped mat {Id} ({Name}) — image download failed", item.Id, item.ItemName);
                     item.ImageAnalyzedAt = DateTime.UtcNow;
                     continue;
+                }
+
+                // Update stored URL if fallback was used
+                if (workingUrl != null && workingUrl != item.ImageUrl)
+                {
+                    _logger.LogInformation("Updated mat {Id} ImageUrl: {Old} → {New}", item.Id, item.ImageUrl, workingUrl);
+                    item.ImageUrl = workingUrl;
                 }
 
                 var analysis = await AnalyzeImageAsync(imageBytes, "mat");
@@ -489,6 +503,30 @@ public class CatalogEnrichmentService
     // Image download
     // =========================================================================
 
+    /// <summary>
+    /// Download an image from S3, trying the primary URL first and an optional fallback.
+    /// Returns (imageBytes, workingUrl) — workingUrl may differ from imageUrl if fallback was used.
+    /// </summary>
+    private async Task<(byte[]? bytes, string? workingUrl)> DownloadImageWithFallbackAsync(string imageUrl)
+    {
+        var bytes = await DownloadImageAsync(imageUrl);
+        if (bytes != null)
+            return (bytes, imageUrl);
+
+        // Fallback: try stripping the trailing size suffix from the filename
+        // E.g., ".../R103105-46.jpg" → ".../R103105.jpg"
+        var fallbackUrl = BuildFallbackUrl(imageUrl);
+        if (fallbackUrl != null && fallbackUrl != imageUrl)
+        {
+            _logger.LogInformation("Trying fallback URL: {Url}", fallbackUrl);
+            bytes = await DownloadImageAsync(fallbackUrl);
+            if (bytes != null)
+                return (bytes, fallbackUrl);
+        }
+
+        return (null, null);
+    }
+
     private async Task<byte[]?> DownloadImageAsync(string imageUrl)
     {
         try
@@ -510,6 +548,40 @@ public class CatalogEnrichmentService
             _logger.LogWarning(ex, "Failed to download image: {Url}", imageUrl);
             return null;
         }
+    }
+
+    /// <summary>
+    /// Build a fallback S3 URL by stripping trailing "-{digits}" size suffixes from the filename.
+    /// E.g., ".../R103105-46.jpg" → ".../R103105.jpg"
+    /// Returns null if no fallback is possible.
+    /// </summary>
+    private static string? BuildFallbackUrl(string imageUrl)
+    {
+        // Find the last / to isolate the filename
+        var lastSlash = imageUrl.LastIndexOf('/');
+        if (lastSlash < 0) return null;
+
+        var filename = Uri.UnescapeDataString(imageUrl[(lastSlash + 1)..]);
+        var extDot = filename.LastIndexOf('.');
+        if (extDot < 0) return null;
+
+        var nameOnly = filename[..extDot];
+        var ext = filename[extDot..];
+
+        // Strip trailing "-{digits}" where prefix has no dashes (same logic as CatalogImportService)
+        var lastDash = nameOnly.LastIndexOf('-');
+        if (lastDash <= 0 || lastDash >= nameOnly.Length - 1) return null;
+
+        var suffix = nameOnly[(lastDash + 1)..];
+        var prefix = nameOnly[..lastDash];
+
+        if (suffix.All(char.IsDigit) && !prefix.Contains('-'))
+        {
+            var basePath = imageUrl[..(lastSlash + 1)];
+            return basePath + Uri.EscapeDataString(prefix + ext);
+        }
+
+        return null;
     }
 
     // =========================================================================

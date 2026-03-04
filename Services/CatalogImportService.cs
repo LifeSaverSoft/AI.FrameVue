@@ -806,11 +806,38 @@ public class CatalogImportService
 
     private static string BuildImageUrl(string baseUrl, string path, string vendorName, string itemName, string extension)
     {
-        // Pattern: {baseUrl}/{path}/{vendorName}/{ITEM_NAME}.jpg
+        // Pattern: {baseUrl}/{path}/{vendorName}/{BASE_ITEM}.jpg
+        // Strip trailing size suffixes (e.g., R103105-46 → R103105) since S3 images
+        // are stored per moulding design, not per size variant.
+        var baseName = StripSizeSuffix(itemName.Trim());
         var encodedPath = Uri.EscapeDataString(path);
         var encodedVendor = Uri.EscapeDataString(vendorName.Trim());
-        var encodedName = Uri.EscapeDataString(itemName.Trim().ToUpperInvariant());
+        var encodedName = Uri.EscapeDataString(baseName.ToUpperInvariant());
         return $"{baseUrl.TrimEnd('/')}/{encodedPath}/{encodedVendor}/{encodedName}{extension}";
+    }
+
+    /// <summary>
+    /// Strip trailing dash-numeric size suffixes from item names.
+    /// E.g., "R103105-46" → "R103105", "R103105-810" → "R103105"
+    /// Item names where dashes are structural (e.g., "G-024-600") are handled
+    /// by only stripping when the prefix is alphanumeric without dashes.
+    /// </summary>
+    internal static string StripSizeSuffix(string itemName)
+    {
+        // Only strip "-{digits}" at the end if the part before the last dash
+        // doesn't itself contain a dash (i.e., the dash is a suffix separator, not structural).
+        var lastDash = itemName.LastIndexOf('-');
+        if (lastDash <= 0 || lastDash >= itemName.Length - 1)
+            return itemName;
+
+        var suffix = itemName[(lastDash + 1)..];
+        var prefix = itemName[..lastDash];
+
+        // Only strip if suffix is purely numeric (size code) AND prefix has no dashes
+        if (suffix.All(char.IsDigit) && !prefix.Contains('-'))
+            return prefix;
+
+        return itemName;
     }
 
     /// <summary>

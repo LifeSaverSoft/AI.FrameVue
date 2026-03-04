@@ -135,4 +135,20 @@ public class CatalogImportServiceTests : IDisposable
 
         Assert.Null(url);
     }
+
+    [Theory]
+    [InlineData("R103105-46", "R103105")]    // Roma size suffix stripped
+    [InlineData("R103105-810", "R103105")]   // Larger size suffix stripped
+    [InlineData("R103105-88", "R103105")]    // Another size suffix
+    [InlineData("G-024-600", "G-024-600")]   // Gemini structural dashes preserved
+    [InlineData("L1064CEM", "L1064CEM")]     // Larson Juhl no dash — unchanged
+    [InlineData("NAB11C", "NAB11C")]         // Nielsen no dash — unchanged
+    [InlineData("ABC", "ABC")]               // No dash — unchanged
+    [InlineData("X-", "X-")]                 // Trailing dash — unchanged
+    [InlineData("-123", "-123")]             // Leading dash — unchanged
+    public void StripSizeSuffix_HandlesPatterns(string input, string expected)
+    {
+        var result = CatalogImportService.StripSizeSuffix(input);
+        Assert.Equal(expected, result);
+    }
 }
