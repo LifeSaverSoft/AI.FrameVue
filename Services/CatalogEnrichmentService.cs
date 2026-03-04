@@ -132,6 +132,9 @@ public class CatalogEnrichmentService
             }
         }
 
+        // Persist any unsaved changes (e.g., skipped items with ImageAnalyzedAt set)
+        await db.SaveChangesAsync();
+
         // Get remaining count
         result.Remaining = await db.CatalogMouldings.CountAsync(m => m.ImageAnalyzedAt == null);
 
@@ -206,6 +209,9 @@ public class CatalogEnrichmentService
                 result.Failed++;
             }
         }
+
+        // Persist any unsaved changes (e.g., skipped items with ImageAnalyzedAt set)
+        await db.SaveChangesAsync();
 
         result.Remaining = await db.CatalogMats.CountAsync(m => m.ImageAnalyzedAt == null);
 
