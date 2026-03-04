@@ -110,8 +110,9 @@
 26. Training admin tab restructure — split Vendor Catalog into 3 tabs: Browse Catalog, Import, AI Enrichment
 27. Browse filter fix — ComboBox getFilterValue falls back to input text when no dropdown selection made
 28. EF Core Migrations — replaced `EnsureCreated()` with `Database.Migrate()` for incremental schema updates without data loss
+29. S3 image URL fix — `BuildImageUrl()` strips trailing `-{digits}` size suffixes; enrichment service tries fallback URL; S3 bucket made public
 
-## Current Status (Last Updated: 2026-03-03)
+## Current Status (Last Updated: 2026-03-04)
 
 ### What's Working in Production (ai.framevue.com)
 - Full app deployed and running on IIS
@@ -130,16 +131,17 @@
 - Art print cards show styled placeholders with title/artist/genre when S3 images unavailable
 
 ### Where We Left Off
-- Switched from `EnsureCreated()` to EF Core Migrations — no more deleting `frameVue.db` on schema changes
-- Deployed to production, deleted old `frameVue.db` (needs re-import of catalog and re-seed of art prints)
-- 64 unit tests + 100 Playwright E2E tests passing
+- Fixed S3 image URL mismatch — `BuildImageUrl()` now strips trailing `-{digits}` size suffixes (e.g., `R103105-46` → `R103105.jpg`)
+- Added fallback URL logic in enrichment service — tries full URL first, then stripped URL
+- Catalog re-imported with corrected URLs, art prints re-seeded and enriched (45/45)
+- AI enrichment running on mouldings and mats (in progress)
+- 73 unit tests + 100 Playwright E2E tests passing
 
 ### What Needs to Be Done Next
-1. **Re-import catalog and re-seed art prints** — via Training admin after production DB was recreated
-2. **S3 image accessibility** — S3 bucket is private (403 on ALL requests, both mouldings and art prints); need AWS credentials or bucket policy change. No images display in browser currently.
-3. **Color normalization Layer 3** — server-side RGB channel normalization as fallback (documented in `Docs/color-normalization-plan.md`)
-4. **Add more prints per vendor** — currently 15 each, use admin CRUD to add more over time
-5. **Browser testing** — all features in production
+1. **Continue AI enrichment** — 37K mouldings + 7K mats, running in batches of 20 via production API
+2. **Color normalization Layer 3** — server-side RGB channel normalization as fallback (documented in `Docs/color-normalization-plan.md`)
+3. **Add more prints per vendor** — currently 15 each, use admin CRUD to add more over time
+4. **Browser testing** — all features in production
 
 ## User Preferences
 - Target users: gifted framers who are NOT tech-savvy (hence voice dictation, large tap targets)
@@ -155,13 +157,14 @@
 - SQL Server TLS: add `TrustServerCertificate=True;Encrypt=Optional;` to connection string
 - Razor `@keyframes`: use `@@keyframes` in .cshtml files
 - rsync must use `-ru` (recursive + update), NOT `-du` (directories only — breaks deployment)
-- S3 bucket is not publicly listable (AccessDenied on list requests)
+- S3 bucket is public for GET (images load) but not listable (AccessDenied on list requests)
+- S3 image URLs: `BuildImageUrl()` strips trailing `-{digits}` size suffixes; items without matching S3 images are skipped during enrichment
 - Xcode license on macOS can block `python3` and `make` — use `dotnet publish`, `rsync`, `touch` separately as workaround
 
 ## Test Suite
 - Location: `AI.FrameVue.Tests/`
 - Run: `dotnet test AI.FrameVue.Tests/` or `make test/unit`
-- 64 tests: HomeController (29), TrainingController (18), KnowledgeBaseService (9), CatalogImportService (8)
+- 73 tests: HomeController (29), TrainingController (18), KnowledgeBaseService (9), CatalogImportService (17)
 - Uses `TestWebApplicationFactory` with in-memory SQLite, `MockOpenAIHandler` for all OpenAI calls
 - All tests run without network access (~450ms)
 
