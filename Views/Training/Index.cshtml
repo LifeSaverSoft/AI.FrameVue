@@ -308,6 +308,8 @@
         .product-card .card-body h4 { font-size: 0.85rem; margin-bottom: 0.3rem; color: var(--text-primary); }
         .product-card .card-body p { font-size: 0.75rem; color: var(--text-secondary); margin: 0; line-height: 1.4; }
 
+        .product-card { cursor: pointer; }
+
         .color-swatch {
             display: inline-block;
             width: 14px;
@@ -316,6 +318,52 @@
             border: 1px solid var(--border);
             vertical-align: middle;
             margin-right: 4px;
+        }
+
+        /* Catalog detail modal */
+        .catalog-detail-modal {
+            position: fixed; inset: 0; z-index: 1100;
+            background: rgba(0,0,0,0.75); backdrop-filter: blur(6px);
+            display: flex; align-items: center; justify-content: center;
+            padding: 1rem;
+        }
+        .catalog-detail-modal.hidden { display: none; }
+        .catalog-detail-panel {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; max-width: 800px; width: 100%;
+            max-height: 90vh; overflow-y: auto; position: relative;
+            display: flex; flex-direction: row; gap: 0;
+        }
+        .catalog-detail-close {
+            position: absolute; top: 0.5rem; right: 0.5rem; z-index: 2;
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            color: var(--text-primary); width: 32px; height: 32px;
+            border-radius: 50%; cursor: pointer; font-size: 1.2rem;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .catalog-detail-close:hover { border-color: var(--accent); color: var(--accent); }
+        .catalog-detail-image-wrap {
+            flex: 0 0 280px; background: var(--bg-secondary);
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 12px 0 0 12px; overflow: hidden;
+        }
+        .catalog-detail-image-wrap img { max-width: 100%; max-height: 300px; object-fit: contain; padding: 1rem; }
+        .catalog-detail-info { flex: 1; padding: 1.5rem; min-width: 0; }
+        .catalog-detail-info h2 { color: var(--accent); font-family: 'Playfair Display', serif; margin: 0 0 0.25rem; font-size: 1.3rem; }
+        .catalog-detail-info .detail-vendor { color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem; }
+        .catalog-detail-section { margin-bottom: 1rem; }
+        .catalog-detail-section h4 { color: var(--accent); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 0.4rem; opacity: 0.8; }
+        .catalog-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem 1rem; }
+        .catalog-detail-grid .detail-label { font-size: 0.75rem; color: var(--text-secondary); }
+        .catalog-detail-grid .detail-value { font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.3rem; }
+        .catalog-detail-flags { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+        .catalog-detail-flags .flag-badge {
+            font-size: 0.7rem; padding: 2px 8px; border-radius: 10px;
+            background: var(--accent-subtle, rgba(201,168,76,0.15)); color: var(--accent); border: 1px solid var(--accent);
+        }
+        @@media (max-width: 640px) {
+            .catalog-detail-panel { flex-direction: column; }
+            .catalog-detail-image-wrap { flex: none; border-radius: 12px 12px 0 0; }
         }
 
         .page-btn {
@@ -610,6 +658,21 @@
                 <div id="browseInfo" style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.75rem;"></div>
                 <div id="browseResults" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:1rem;"></div>
                 <div id="browsePagination" style="display:flex; justify-content:center; gap:0.5rem; margin-top:1.5rem;"></div>
+
+                <!-- Catalog item detail modal -->
+                <div id="catalog-detail-modal" class="catalog-detail-modal hidden" onclick="if(event.target===this)closeCatalogDetail()">
+                    <div class="catalog-detail-panel">
+                        <button class="catalog-detail-close" onclick="closeCatalogDetail()">&times;</button>
+                        <div class="catalog-detail-image-wrap">
+                            <img id="catalog-detail-image" alt="Product" />
+                        </div>
+                        <div class="catalog-detail-info">
+                            <h2 id="catalog-detail-title"></h2>
+                            <div class="detail-vendor" id="catalog-detail-vendor"></div>
+                            <div id="catalog-detail-body"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- === IMPORT CATALOG === -->
@@ -1265,6 +1328,7 @@
 
         // === Browse Catalog ===
         let currentBrowsePage = 1;
+        let browseItems = []; // store items for detail modal
 
         function clearBrowse() {
             ['browseVendor','browseColor','browseStyle','browseFinish'].forEach(id => document.getElementById(id).value = '');
@@ -1306,7 +1370,8 @@
                     return;
                 }
 
-                container.innerHTML = data.items.map(item => {
+                browseItems = data.items;
+                container.innerHTML = data.items.map((item, idx) => {
                     const colorSwatch = item.primaryColorHex
                         ? `<span class="color-swatch" style="background:${item.primaryColorHex}"></span>${item.primaryColorName || item.primaryColorHex}`
                         : item.colorCategory || 'Unknown';
@@ -1321,7 +1386,7 @@
                         : `${item.matClass || ''} | ${item.material || ''}`;
 
                     return `
-                        <div class="product-card">
+                        <div class="product-card" onclick="showCatalogDetail(${idx})">
                             <img src="${item.imageUrl || ''}" alt="${item.itemName}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 160%22><rect fill=%22%23141422%22 width=%22200%22 height=%22160%22/><text fill=%22%238888a0%22 x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 font-size=%2212%22>No Image</text></svg>'" />
                             <div class="card-body">
                                 <h4>${item.itemName}</h4>
@@ -1352,6 +1417,111 @@
                 document.getElementById('browseResults').innerHTML = `<p style="color:var(--danger);">Error: ${e.message}</p>`;
             }
         }
+        // === Catalog Detail Modal ===
+        function showCatalogDetail(idx) {
+            const item = browseItems[idx];
+            if (!item) return;
+            const type = document.getElementById('browseType').value;
+            const modal = document.getElementById('catalog-detail-modal');
+            const img = document.getElementById('catalog-detail-image');
+
+            img.src = item.imageUrl || '';
+            img.onerror = function() { this.src = 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 160%22><rect fill=%22%23141422%22 width=%22200%22 height=%22160%22/><text fill=%22%238888a0%22 x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 font-size=%2212%22>No Image</text></svg>'; };
+            document.getElementById('catalog-detail-title').textContent = item.itemName;
+            document.getElementById('catalog-detail-vendor').textContent = item.vendorName;
+
+            const esc = v => v != null && v !== '' ? v : '—';
+            const row = (label, value) => value != null && value !== '' && value !== 0
+                ? `<div class="detail-label">${label}</div><div class="detail-value">${value}</div>` : '';
+            const swatch = (hex, name) => hex
+                ? `<span class="color-swatch" style="background:${hex}"></span> ${name || hex}` : '—';
+
+            let html = '';
+
+            // Colors section
+            html += `<div class="catalog-detail-section"><h4>Colors</h4><div class="catalog-detail-grid">`;
+            html += row('Primary', swatch(item.primaryColorHex, item.primaryColorName));
+            html += row('Secondary', swatch(item.secondaryColorHex, item.secondaryColorName));
+            html += row('Category', item.colorCategory);
+            html += row('Sub-Category', item.colorCategorySub);
+            html += row('Finish', item.finishType);
+            html += row('Temperature', item.colorTemperature);
+            html += `</div></div>`;
+
+            // Dimensions & specs
+            if (type === 'mouldings') {
+                html += `<div class="catalog-detail-section"><h4>Dimensions & Specs</h4><div class="catalog-detail-grid">`;
+                html += row('Width', item.mouldingWidth ? item.mouldingWidth + '"' : null);
+                html += row('Height', item.mouldingHeight ? item.mouldingHeight + '"' : null);
+                html += row('Rabbit Width', item.rabbitWidth ? item.rabbitWidth + '"' : null);
+                html += row('Rabbit Height', item.rabbitHeight ? item.rabbitHeight + '"' : null);
+                html += row('Style', item.style);
+                html += row('Profile', item.profile);
+                html += row('Material', item.material);
+                html += row('Line', item.lineName);
+                html += row('Type', item.mouldingType);
+                html += `</div></div>`;
+
+                // Pricing
+                html += `<div class="catalog-detail-section"><h4>Pricing</h4><div class="catalog-detail-grid">`;
+                html += row('Length Cost', item.lengthCost ? '$' + item.lengthCost.toFixed(2) : null);
+                html += row('Chop Cost', item.chopCost ? '$' + item.chopCost.toFixed(2) : null);
+                html += row('Join Cost', item.joinCost ? '$' + item.joinCost.toFixed(2) : null);
+                html += `</div></div>`;
+
+                // Flags
+                const flags = [];
+                if (item.isClosedCorner) flags.push('Closed Corner');
+                if (item.isBoxer) flags.push('Boxer');
+                if (item.isFillet) flags.push('Fillet');
+                if (item.isLiner) flags.push('Liner');
+                if (item.isReadyMade) flags.push('Ready-Made');
+                if (flags.length > 0) {
+                    html += `<div class="catalog-detail-section"><h4>Attributes</h4><div class="catalog-detail-flags">`;
+                    html += flags.map(f => `<span class="flag-badge">${f}</span>`).join('');
+                    html += `</div></div>`;
+                }
+            } else {
+                html += `<div class="catalog-detail-section"><h4>Dimensions & Specs</h4><div class="catalog-detail-grid">`;
+                html += row('Width', item.width ? item.width + '"' : null);
+                html += row('Height', item.height ? item.height + '"' : null);
+                html += row('Material', item.material);
+                html += row('Class', item.matClass);
+                html += row('Ply Count', item.plyCount);
+                html += row('UOM', item.uom);
+                html += `</div></div>`;
+
+                html += `<div class="catalog-detail-section"><h4>Pricing</h4><div class="catalog-detail-grid">`;
+                html += row('Cost', item.cost ? '$' + item.cost.toFixed(2) : null);
+                html += `</div></div>`;
+
+                if (item.isOverSize) {
+                    html += `<div class="catalog-detail-section"><div class="catalog-detail-flags"><span class="flag-badge">Over-Size</span></div></div>`;
+                }
+            }
+
+            // Common details
+            html += `<div class="catalog-detail-section"><h4>Details</h4><div class="catalog-detail-grid">`;
+            html += row('Description', item.description);
+            html += row('UPC', item.upc);
+            html += row('Mfr Item', item.manufacturerItemName);
+            html += row('Image URL', item.imageUrl ? `<a href="${item.imageUrl}" target="_blank" style="color:var(--accent);word-break:break-all;">${item.imageUrl}</a>` : null);
+            if (item.imageAnalyzedAt) html += row('AI Analyzed', new Date(item.imageAnalyzedAt).toLocaleString());
+            html += `</div></div>`;
+
+            document.getElementById('catalog-detail-body').innerHTML = html;
+            modal.classList.remove('hidden');
+        }
+
+        function closeCatalogDetail() {
+            document.getElementById('catalog-detail-modal').classList.add('hidden');
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && !document.getElementById('catalog-detail-modal').classList.contains('hidden'))
+                closeCatalogDetail();
+        });
+
         // === Voice Dictation ===
         let recognition = null;
         let activeFieldId = null;
