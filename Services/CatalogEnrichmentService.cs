@@ -311,30 +311,35 @@ public class CatalogEnrichmentService
         var items = await query.OrderBy(m => m.Id).Take(batchSize).ToListAsync();
         result.TotalInBatch = items.Count;
 
-        // Pre-check S3: list available images for this vendor's folder
-        HashSet<string>? s3Images = null;
-        if (items.Count > 0)
+        // Pre-check S3: build per-vendor image cache
+        var s3Cache = new Dictionary<string, HashSet<string>?>();
+        foreach (var item in items)
         {
-            var prefix = ExtractS3Prefix(items[0].ImageUrl);
-            if (prefix != null)
-                s3Images = await ListS3ImagesAsync(prefix);
+            var prefix = ExtractS3Prefix(item.ImageUrl);
+            if (prefix != null && !s3Cache.ContainsKey(prefix))
+            {
+                var images = await ListS3ImagesAsync(prefix);
+                // Empty listing (0 images) likely means S3 issue — disable pre-check for this prefix
+                s3Cache[prefix] = images?.Count > 0 ? images : null;
+            }
         }
 
-        _logger.LogInformation("Enriching {Count} mouldings (S3 pre-check: {S3Status})...",
-            items.Count, s3Images != null ? $"{s3Images.Count} images available" : "disabled");
+        _logger.LogInformation("Enriching {Count} mouldings (S3 pre-check: {Prefixes} vendor prefixes cached)...",
+            items.Count, s3Cache.Count);
 
         foreach (var item in items)
         {
             try
             {
                 // S3 pre-check: skip items without confirmed S3 images
+                var itemPrefix = ExtractS3Prefix(item.ImageUrl);
+                var s3Images = itemPrefix != null && s3Cache.TryGetValue(itemPrefix, out var cached) ? cached : null;
                 if (s3Images != null)
                 {
                     var itemKey = ExtractS3FileName(item.ImageUrl!);
                     if (itemKey == null || !s3Images.Contains(itemKey))
                     {
                         result.Skipped++;
-                        // Mark as analyzed (no image on S3) so we don't reprocess
                         item.ImageAnalyzedAt = DateTime.UtcNow;
                         continue;
                     }
@@ -414,23 +419,28 @@ public class CatalogEnrichmentService
         var items = await query.OrderBy(m => m.Id).Take(batchSize).ToListAsync();
         result.TotalInBatch = items.Count;
 
-        // Pre-check S3: list available images for this vendor's folder
-        HashSet<string>? s3Images = null;
-        if (items.Count > 0)
+        // Pre-check S3: build per-vendor image cache
+        var s3Cache = new Dictionary<string, HashSet<string>?>();
+        foreach (var item in items)
         {
-            var prefix = ExtractS3Prefix(items[0].ImageUrl);
-            if (prefix != null)
-                s3Images = await ListS3ImagesAsync(prefix);
+            var prefix = ExtractS3Prefix(item.ImageUrl);
+            if (prefix != null && !s3Cache.ContainsKey(prefix))
+            {
+                var images = await ListS3ImagesAsync(prefix);
+                s3Cache[prefix] = images?.Count > 0 ? images : null;
+            }
         }
 
-        _logger.LogInformation("Enriching {Count} mats (S3 pre-check: {S3Status})...",
-            items.Count, s3Images != null ? $"{s3Images.Count} images available" : "disabled");
+        _logger.LogInformation("Enriching {Count} mats (S3 pre-check: {Prefixes} vendor prefixes cached)...",
+            items.Count, s3Cache.Count);
 
         foreach (var item in items)
         {
             try
             {
                 // S3 pre-check: skip items without confirmed S3 images
+                var itemPrefix = ExtractS3Prefix(item.ImageUrl);
+                var s3Images = itemPrefix != null && s3Cache.TryGetValue(itemPrefix, out var cached) ? cached : null;
                 if (s3Images != null)
                 {
                     var itemKey = ExtractS3FileName(item.ImageUrl!);
