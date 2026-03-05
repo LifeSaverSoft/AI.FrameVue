@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using AI.FrameVue.Data;
 using AI.FrameVue.Models;
 using AI.FrameVue.Services;
 
@@ -9,6 +11,7 @@ public class TrainingController : Controller
     private readonly KnowledgeBaseService _knowledgeBase;
     private readonly CatalogImportService _catalogImport;
     private readonly CatalogEnrichmentService _catalogEnrichment;
+    private readonly IServiceProvider _serviceProvider;
     private readonly IConfiguration _configuration;
     private readonly ILogger<TrainingController> _logger;
 
@@ -16,12 +19,14 @@ public class TrainingController : Controller
         KnowledgeBaseService knowledgeBase,
         CatalogImportService catalogImport,
         CatalogEnrichmentService catalogEnrichment,
+        IServiceProvider serviceProvider,
         IConfiguration configuration,
         ILogger<TrainingController> logger)
     {
         _knowledgeBase = knowledgeBase;
         _catalogImport = catalogImport;
         _catalogEnrichment = catalogEnrichment;
+        _serviceProvider = serviceProvider;
         _configuration = configuration;
         _logger = logger;
     }
@@ -303,6 +308,42 @@ public class TrainingController : Controller
         return Json(new { mouldings = mouldingResult, mats = matResult });
     }
 
+    // === API: Delete Vendors by Name ===
+
+    [HttpPost]
+    public async Task<IActionResult> DeleteVendors([FromBody] DeleteVendorsRequest? request)
+    {
+        var adminKey = request?.AdminKey ?? Request.Query["adminKey"].FirstOrDefault();
+        if (!ValidateAdminKey(adminKey))
+            return Unauthorized(new { error = "Invalid admin key." });
+
+        var names = request?.VendorNames;
+        if (names == null || names.Count == 0)
+            return BadRequest(new { error = "No vendor names provided." });
+
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var deleted = new List<string>();
+        foreach (var name in names)
+        {
+            var vendor = await db.CatalogVendors.FirstOrDefaultAsync(v => v.Name == name);
+            if (vendor == null) continue;
+
+            var mouldingsRemoved = await db.CatalogMouldings.Where(m => m.VendorId == vendor.Id).CountAsync();
+            var matsRemoved = await db.CatalogMats.Where(m => m.VendorId == vendor.Id).CountAsync();
+
+            db.CatalogMouldings.RemoveRange(db.CatalogMouldings.Where(m => m.VendorId == vendor.Id));
+            db.CatalogMats.RemoveRange(db.CatalogMats.Where(m => m.VendorId == vendor.Id));
+            db.CatalogVendors.Remove(vendor);
+
+            deleted.Add($"{name} ({mouldingsRemoved} mouldings, {matsRemoved} mats)");
+        }
+
+        await db.SaveChangesAsync();
+        return Json(new { deleted });
+    }
+
     // === API: Catalog Filter Options (for searchable dropdowns) ===
 
     [HttpGet]
@@ -577,6 +618,12 @@ public class EnrichCatalogRequest
     public int BatchSize { get; set; } = 50;
     public string? VendorFilter { get; set; }
     public string? Type { get; set; } = "both"; // "mouldings", "mats", or "both"
+}
+
+public class DeleteVendorsRequest
+{
+    public string? AdminKey { get; set; }
+    public List<string> VendorNames { get; set; } = new();
 }
 
 public class CatalogImportRequest

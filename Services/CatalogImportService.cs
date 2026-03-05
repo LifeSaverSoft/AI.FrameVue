@@ -40,6 +40,10 @@ public class CatalogImportService
 
             foreach (var vendor in allVendors)
             {
+                // Skip country-suffix vendors (e.g., "Larson Juhl Australia")
+                if (ExcludedVendors.Contains(vendor.Name))
+                    continue;
+
                 var mouldingFolder = FindS3FolderName(vendor.Name, S3MouldingVendors);
                 if (mouldingFolder != null)
                     mouldingVendorMap[vendor.Id] = (vendor, mouldingFolder);
@@ -565,6 +569,7 @@ public class CatalogImportService
 
     // =========================================================================
     // S3 image folder whitelists — only import vendors that have images
+    // Exclude vendors with country suffixes (e.g., "Roma Canada", "Larson Juhl Australia")
     // =========================================================================
 
     private static readonly HashSet<string> S3MouldingVendors = new(StringComparer.OrdinalIgnoreCase)
@@ -578,7 +583,6 @@ public class CatalogImportService
         "Don Mar Creations",
         "Engelsen Frame & Moulding Co.",
         "Folkgraphis Frames",
-        "Fotiou Frames USA",
         "Gemini Moulding",
         "Hobby Lobby",
         "IM",
@@ -590,13 +594,25 @@ public class CatalogImportService
         "Mayne Framing",
         "Michelangelo Frames",
         "Nielsen",
-        "Omega Moulding USA",
         "Picture & Frame Industries",
         "Presto Frame & Moulding Inc.",
-        "Roma Canada",
         "Roma",
         "Studio Moulding",
         "Superior Moulding (Matboards)"
+    };
+
+    // Vendors to exclude from import — country-specific duplicates of base vendors
+    private static readonly HashSet<string> ExcludedVendors = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Fotiou Frames USA",
+        "Larson Juhl Australia",
+        "Larson Juhl Canada",
+        "Larson Juhl New Zealand",
+        "Michelangelo Frames Canada",
+        "Omega Moulding USA",
+        "Roma Canada",
+        "Roma Moulding Canada",
+        "Roma USA Readymade"
     };
 
     private static readonly HashSet<string> S3MatVendors = new(StringComparer.OrdinalIgnoreCase)
