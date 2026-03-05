@@ -275,22 +275,30 @@ public class TrainingController : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> EnrichCatalog([FromBody] EnrichCatalogRequest request)
+    public async Task<IActionResult> EnrichCatalog([FromBody] EnrichCatalogRequest? request)
     {
-        if (!ValidateAdminKey(request.AdminKey))
+        // Support both JSON body and query string parameters (Azure gateway may strip body)
+        var adminKey = request?.AdminKey ?? Request.Query["adminKey"].FirstOrDefault();
+        var type = request?.Type ?? Request.Query["type"].FirstOrDefault() ?? "both";
+        var batchSize = request?.BatchSize > 0 ? request.BatchSize : 50;
+        var vendorFilter = request?.VendorFilter ?? Request.Query["vendorFilter"].FirstOrDefault();
+
+        if (int.TryParse(Request.Query["batchSize"].FirstOrDefault(), out var qsBatchSize) && qsBatchSize > 0)
+            batchSize = qsBatchSize;
+
+        if (!ValidateAdminKey(adminKey))
             return Unauthorized(new { error = "Invalid admin key." });
 
-        var batchSize = request.BatchSize > 0 ? request.BatchSize : 50;
-        var type = request.Type?.ToLowerInvariant() ?? "both";
+        type = type.ToLowerInvariant();
 
         EnrichmentResult? mouldingResult = null;
         EnrichmentResult? matResult = null;
 
         if (type is "mouldings" or "both")
-            mouldingResult = await _catalogEnrichment.EnrichMouldingsAsync(batchSize, request.VendorFilter);
+            mouldingResult = await _catalogEnrichment.EnrichMouldingsAsync(batchSize, vendorFilter);
 
         if (type is "mats" or "both")
-            matResult = await _catalogEnrichment.EnrichMatsAsync(batchSize, request.VendorFilter);
+            matResult = await _catalogEnrichment.EnrichMatsAsync(batchSize, vendorFilter);
 
         return Json(new { mouldings = mouldingResult, mats = matResult });
     }
