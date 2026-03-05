@@ -879,7 +879,12 @@ public class CatalogImportService
         var dbNormalized = NormalizeName(dbVendorName);
         foreach (var folder in s3Folders)
         {
-            if (NormalizeName(folder) == dbNormalized)
+            var folderNormalized = NormalizeName(folder);
+            // Exact normalized match
+            if (folderNormalized == dbNormalized)
+                return folder;
+            // StartsWith match — handles "LarsonJuhl Mats" matching "Larson Juhl"
+            if (folderNormalized.StartsWith(dbNormalized) || dbNormalized.StartsWith(folderNormalized))
                 return folder;
         }
 

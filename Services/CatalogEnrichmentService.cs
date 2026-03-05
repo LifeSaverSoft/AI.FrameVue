@@ -1,6 +1,8 @@
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Amazon.S3;
+using Amazon.S3.Model;
 using AI.FrameVue.Data;
 using AI.FrameVue.Models;
 
@@ -10,6 +12,8 @@ public class CatalogEnrichmentService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IAmazonS3 _s3Client;
+    private readonly string _bucketName;
     private readonly string _apiKey;
     private readonly string _analysisModel;
     private readonly ILogger<CatalogEnrichmentService> _logger;
@@ -17,11 +21,14 @@ public class CatalogEnrichmentService
     public CatalogEnrichmentService(
         IServiceProvider serviceProvider,
         IHttpClientFactory httpClientFactory,
+        IAmazonS3 s3Client,
         IConfiguration configuration,
         ILogger<CatalogEnrichmentService> logger)
     {
         _serviceProvider = serviceProvider;
         _httpClientFactory = httpClientFactory;
+        _s3Client = s3Client;
+        _bucketName = configuration["AWS:BucketName"] ?? "lifesaversoft";
         _apiKey = configuration["OpenAI:ApiKey"] ?? "";
         _analysisModel = configuration["OpenAI:AnalysisModel"] ?? "gpt-4o-mini";
         _logger = logger;
@@ -60,6 +67,231 @@ public class CatalogEnrichmentService
     }
 
     // =========================================================================
+    // S3 image listing
+    // =========================================================================
+
+    /// <summary>
+    /// List all .jpg image filenames in an S3 folder prefix.
+    /// Returns uppercase filenames without extension for fast matching against item names.
+    /// </summary>
+    public async Task<HashSet<string>?> ListS3ImagesAsync(string prefix)
+    {
+        try
+        {
+            var imageKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            string? continuationToken = null;
+
+            do
+            {
+                var request = new ListObjectsV2Request
+                {
+                    BucketName = _bucketName,
+                    Prefix = prefix
+                };
+                if (continuationToken != null)
+                    request.ContinuationToken = continuationToken;
+
+                var response = await _s3Client.ListObjectsV2Async(request);
+
+                foreach (var obj in response.S3Objects)
+                {
+                    if (obj.Key.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var fileName = Path.GetFileNameWithoutExtension(obj.Key).ToUpperInvariant();
+                        imageKeys.Add(fileName);
+                    }
+                }
+
+                continuationToken = response.IsTruncated == true ? response.NextContinuationToken : null;
+            } while (continuationToken != null);
+
+            _logger.LogInformation("S3 listing for '{Prefix}': {Count} images found", prefix, imageKeys.Count);
+            return imageKeys;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "S3 listing failed for '{Prefix}' — falling back to HTTP-only enrichment", prefix);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// List all vendor folder names under a top-level S3 path (e.g., "Moulding Images/").
+    /// </summary>
+    public async Task<List<string>?> ListS3VendorFoldersAsync(string topLevelPath)
+    {
+        try
+        {
+            var folders = new List<string>();
+            var prefix = topLevelPath.TrimEnd('/') + "/";
+
+            var request = new ListObjectsV2Request
+            {
+                BucketName = _bucketName,
+                Prefix = prefix,
+                Delimiter = "/"
+            };
+
+            var response = await _s3Client.ListObjectsV2Async(request);
+            foreach (var cp in response.CommonPrefixes)
+            {
+                // cp is like "Moulding Images/Roma/" — extract just "Roma"
+                var folderName = cp.TrimEnd('/');
+                var lastSlash = folderName.LastIndexOf('/');
+                if (lastSlash >= 0)
+                    folderName = folderName[(lastSlash + 1)..];
+                folders.Add(folderName);
+            }
+
+            return folders;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "S3 folder listing failed for '{Path}'", topLevelPath);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Extract the S3 prefix from an item's ImageUrl.
+    /// E.g., "https://lifesaversoft.s3.amazonaws.com/Moulding%20Images/Roma/R103105.jpg"
+    ///   → "Moulding Images/Roma/"
+    /// </summary>
+    private static string? ExtractS3Prefix(string? imageUrl)
+    {
+        if (string.IsNullOrEmpty(imageUrl)) return null;
+
+        try
+        {
+            var uri = new Uri(imageUrl);
+            // Path is like "/Moulding%20Images/Roma/R103105.jpg"
+            var path = Uri.UnescapeDataString(uri.AbsolutePath).TrimStart('/');
+            var lastSlash = path.LastIndexOf('/');
+            if (lastSlash <= 0) return null;
+            return path[..(lastSlash + 1)]; // "Moulding Images/Roma/"
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Extract the S3 filename (uppercase, no extension) from an item's ImageUrl.
+    /// </summary>
+    private static string? ExtractS3FileName(string imageUrl)
+    {
+        try
+        {
+            var uri = new Uri(imageUrl);
+            var path = Uri.UnescapeDataString(uri.AbsolutePath);
+            var fileName = Path.GetFileNameWithoutExtension(path);
+            return string.IsNullOrEmpty(fileName) ? null : fileName.ToUpperInvariant();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Get the S3 image status for a vendor — how many images exist on S3 vs DB items.
+    /// </summary>
+    public async Task<S3ImageStatusResult> GetS3ImageStatusAsync(string type, string? vendorFilter)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var result = new S3ImageStatusResult { Type = type, VendorFilter = vendorFilter };
+
+        if (type == "mouldings")
+        {
+            var query = db.CatalogMouldings.AsQueryable();
+            if (!string.IsNullOrEmpty(vendorFilter))
+                query = query.Where(m => m.VendorName.Contains(vendorFilter));
+
+            result.TotalDbItems = await query.CountAsync();
+            result.EnrichedItems = await query.CountAsync(m => m.ImageAnalyzedAt != null && m.PrimaryColorHex != null);
+            result.FalseEnrichments = await query.CountAsync(m => m.ImageAnalyzedAt != null && m.PrimaryColorHex == null);
+            result.Unenriched = await query.CountAsync(m => m.ImageAnalyzedAt == null);
+
+            // Get S3 image count from first item's URL prefix
+            var sampleItem = await query.Where(m => m.ImageUrl != null).FirstOrDefaultAsync();
+            var prefix = ExtractS3Prefix(sampleItem?.ImageUrl);
+            if (prefix != null)
+            {
+                var s3Images = await ListS3ImagesAsync(prefix);
+                result.S3ImageCount = s3Images?.Count ?? -1;
+                result.S3Prefix = prefix;
+            }
+        }
+        else if (type == "mats")
+        {
+            var query = db.CatalogMats.AsQueryable();
+            if (!string.IsNullOrEmpty(vendorFilter))
+                query = query.Where(m => m.VendorName.Contains(vendorFilter));
+
+            result.TotalDbItems = await query.CountAsync();
+            result.EnrichedItems = await query.CountAsync(m => m.ImageAnalyzedAt != null && m.PrimaryColorHex != null);
+            result.FalseEnrichments = await query.CountAsync(m => m.ImageAnalyzedAt != null && m.PrimaryColorHex == null);
+            result.Unenriched = await query.CountAsync(m => m.ImageAnalyzedAt == null);
+
+            var sampleItem = await query.Where(m => m.ImageUrl != null).FirstOrDefaultAsync();
+            var prefix = ExtractS3Prefix(sampleItem?.ImageUrl);
+            if (prefix != null)
+            {
+                var s3Images = await ListS3ImagesAsync(prefix);
+                result.S3ImageCount = s3Images?.Count ?? -1;
+                result.S3Prefix = prefix;
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Reset ImageAnalyzedAt for items that were falsely marked as analyzed
+    /// (have timestamp but no enrichment data).
+    /// </summary>
+    public async Task<ResetResult> ResetFalseEnrichmentsAsync(string? type = null, string? vendorFilter = null)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var result = new ResetResult();
+
+        if (type is null or "mouldings")
+        {
+            var query = db.CatalogMouldings
+                .Where(m => m.ImageAnalyzedAt != null && m.PrimaryColorHex == null);
+            if (!string.IsNullOrEmpty(vendorFilter))
+                query = query.Where(m => m.VendorName.Contains(vendorFilter));
+
+            var items = await query.ToListAsync();
+            foreach (var item in items)
+                item.ImageAnalyzedAt = null;
+            result.MouldingsReset = items.Count;
+        }
+
+        if (type is null or "mats")
+        {
+            var query = db.CatalogMats
+                .Where(m => m.ImageAnalyzedAt != null && m.PrimaryColorHex == null);
+            if (!string.IsNullOrEmpty(vendorFilter))
+                query = query.Where(m => m.VendorName.Contains(vendorFilter));
+
+            var items = await query.ToListAsync();
+            foreach (var item in items)
+                item.ImageAnalyzedAt = null;
+            result.MatsReset = items.Count;
+        }
+
+        await db.SaveChangesAsync();
+        _logger.LogInformation("Reset false enrichments: {Mouldings} mouldings, {Mats} mats",
+            result.MouldingsReset, result.MatsReset);
+        return result;
+    }
+
+    // =========================================================================
     // Batch enrichment
     // =========================================================================
 
@@ -79,18 +311,40 @@ public class CatalogEnrichmentService
         var items = await query.OrderBy(m => m.Id).Take(batchSize).ToListAsync();
         result.TotalInBatch = items.Count;
 
-        _logger.LogInformation("Enriching {Count} mouldings...", items.Count);
+        // Pre-check S3: list available images for this vendor's folder
+        HashSet<string>? s3Images = null;
+        if (items.Count > 0)
+        {
+            var prefix = ExtractS3Prefix(items[0].ImageUrl);
+            if (prefix != null)
+                s3Images = await ListS3ImagesAsync(prefix);
+        }
+
+        _logger.LogInformation("Enriching {Count} mouldings (S3 pre-check: {S3Status})...",
+            items.Count, s3Images != null ? $"{s3Images.Count} images available" : "disabled");
 
         foreach (var item in items)
         {
             try
             {
+                // S3 pre-check: skip items without confirmed S3 images
+                if (s3Images != null)
+                {
+                    var itemKey = ExtractS3FileName(item.ImageUrl!);
+                    if (itemKey == null || !s3Images.Contains(itemKey))
+                    {
+                        result.Skipped++;
+                        // Mark as analyzed (no image on S3) so we don't reprocess
+                        item.ImageAnalyzedAt = DateTime.UtcNow;
+                        continue;
+                    }
+                }
+
                 var (imageBytes, workingUrl) = await DownloadImageWithFallbackAsync(item.ImageUrl!);
                 if (imageBytes == null)
                 {
                     result.Skipped++;
                     _logger.LogWarning("Skipped moulding {Id} ({Name}) — image download failed", item.Id, item.ItemName);
-                    // Mark as analyzed so we don't retry broken images forever
                     item.ImageAnalyzedAt = DateTime.UtcNow;
                     continue;
                 }
@@ -160,12 +414,34 @@ public class CatalogEnrichmentService
         var items = await query.OrderBy(m => m.Id).Take(batchSize).ToListAsync();
         result.TotalInBatch = items.Count;
 
-        _logger.LogInformation("Enriching {Count} mats...", items.Count);
+        // Pre-check S3: list available images for this vendor's folder
+        HashSet<string>? s3Images = null;
+        if (items.Count > 0)
+        {
+            var prefix = ExtractS3Prefix(items[0].ImageUrl);
+            if (prefix != null)
+                s3Images = await ListS3ImagesAsync(prefix);
+        }
+
+        _logger.LogInformation("Enriching {Count} mats (S3 pre-check: {S3Status})...",
+            items.Count, s3Images != null ? $"{s3Images.Count} images available" : "disabled");
 
         foreach (var item in items)
         {
             try
             {
+                // S3 pre-check: skip items without confirmed S3 images
+                if (s3Images != null)
+                {
+                    var itemKey = ExtractS3FileName(item.ImageUrl!);
+                    if (itemKey == null || !s3Images.Contains(itemKey))
+                    {
+                        result.Skipped++;
+                        item.ImageAnalyzedAt = DateTime.UtcNow;
+                        continue;
+                    }
+                }
+
                 var (imageBytes, workingUrl) = await DownloadImageWithFallbackAsync(item.ImageUrl!);
                 if (imageBytes == null)
                 {
@@ -799,4 +1075,22 @@ public class ArtPrintAnalysis
     public string? Style { get; set; }
     public string? SubjectTags { get; set; }
     public string? Description { get; set; }
+}
+
+public class S3ImageStatusResult
+{
+    public string? Type { get; set; }
+    public string? VendorFilter { get; set; }
+    public int TotalDbItems { get; set; }
+    public int EnrichedItems { get; set; }
+    public int FalseEnrichments { get; set; }
+    public int Unenriched { get; set; }
+    public int S3ImageCount { get; set; }
+    public string? S3Prefix { get; set; }
+}
+
+public class ResetResult
+{
+    public int MouldingsReset { get; set; }
+    public int MatsReset { get; set; }
 }

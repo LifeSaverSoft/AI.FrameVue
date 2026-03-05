@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Amazon.S3;
 using AI.FrameVue.Data;
 using AI.FrameVue.Services;
 
@@ -20,6 +21,23 @@ builder.Services.AddScoped<CatalogEnrichmentService>();
 
 // HttpClient factory for S3 downloads
 builder.Services.AddHttpClient();
+
+// AWS S3 client for listing bucket images
+var awsAccessKey = builder.Configuration["AWS:AccessKeyId"];
+var awsSecretKey = builder.Configuration["AWS:SecretAccessKey"];
+var awsRegion = builder.Configuration["AWS:Region"] ?? "us-east-1";
+if (!string.IsNullOrEmpty(awsAccessKey) && !string.IsNullOrEmpty(awsSecretKey))
+{
+    builder.Services.AddSingleton<IAmazonS3>(new AmazonS3Client(
+        awsAccessKey, awsSecretKey,
+        Amazon.RegionEndpoint.GetBySystemName(awsRegion)));
+}
+else
+{
+    // Register a null placeholder so DI doesn't fail — S3 features will be unavailable
+    builder.Services.AddSingleton<IAmazonS3>(sp => new AmazonS3Client(
+        Amazon.RegionEndpoint.GetBySystemName(awsRegion)));
+}
 
 // SQLite database — resolve path relative to content root for IIS compatibility
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=frameVue.db";

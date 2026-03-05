@@ -344,6 +344,41 @@ public class TrainingController : Controller
         return Json(new { deleted });
     }
 
+    // === API: Reset False Enrichments ===
+
+    [HttpPost]
+    public async Task<IActionResult> ResetFalseEnrichments([FromBody] ResetFalseEnrichmentsRequest? request)
+    {
+        var adminKey = request?.AdminKey ?? Request.Query["adminKey"].FirstOrDefault();
+        if (!ValidateAdminKey(adminKey))
+            return Unauthorized(new { error = "Invalid admin key." });
+
+        var type = request?.Type ?? Request.Query["type"].FirstOrDefault();
+        var vendorFilter = request?.VendorFilter ?? Request.Query["vendorFilter"].FirstOrDefault();
+
+        var result = await _catalogEnrichment.ResetFalseEnrichmentsAsync(type, vendorFilter);
+        return Json(result);
+    }
+
+    // === API: S3 Image Status ===
+
+    [HttpGet]
+    public async Task<IActionResult> S3ImageStatus(string type = "mouldings", string? vendor = null)
+    {
+        var result = await _catalogEnrichment.GetS3ImageStatusAsync(type, vendor);
+        return Json(result);
+    }
+
+    // === API: List S3 Vendor Folders ===
+
+    [HttpGet]
+    public async Task<IActionResult> S3VendorFolders(string type = "mouldings")
+    {
+        var path = type == "mats" ? "Mat Images" : "Moulding Images";
+        var folders = await _catalogEnrichment.ListS3VendorFoldersAsync(path);
+        return Json(new { type, path, folders, count = folders?.Count ?? 0 });
+    }
+
     // === API: Catalog Filter Options (for searchable dropdowns) ===
 
     [HttpGet]
@@ -624,6 +659,13 @@ public class DeleteVendorsRequest
 {
     public string? AdminKey { get; set; }
     public List<string> VendorNames { get; set; } = new();
+}
+
+public class ResetFalseEnrichmentsRequest
+{
+    public string? AdminKey { get; set; }
+    public string? Type { get; set; }
+    public string? VendorFilter { get; set; }
 }
 
 public class CatalogImportRequest
