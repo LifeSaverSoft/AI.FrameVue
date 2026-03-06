@@ -13,6 +13,7 @@ public class TrainingController : Controller
     private readonly CatalogEnrichmentService _catalogEnrichment;
     private readonly IServiceProvider _serviceProvider;
     private readonly IConfiguration _configuration;
+    private readonly IWebHostEnvironment _env;
     private readonly ILogger<TrainingController> _logger;
 
     public TrainingController(
@@ -21,6 +22,7 @@ public class TrainingController : Controller
         CatalogEnrichmentService catalogEnrichment,
         IServiceProvider serviceProvider,
         IConfiguration configuration,
+        IWebHostEnvironment env,
         ILogger<TrainingController> logger)
     {
         _knowledgeBase = knowledgeBase;
@@ -28,6 +30,7 @@ public class TrainingController : Controller
         _catalogEnrichment = catalogEnrichment;
         _serviceProvider = serviceProvider;
         _configuration = configuration;
+        _env = env;
         _logger = logger;
     }
 
@@ -584,6 +587,68 @@ public class TrainingController : Controller
 
         var saved = await _catalogImport.AddArtPrintAsync(print);
         return Json(saved);
+    }
+
+    // === API: Server Logs ===
+
+    [HttpGet]
+    public IActionResult ServerLogs(string? adminKey, int lines = 100, string? level = null)
+    {
+        if (!ValidateAdminKey(adminKey))
+            return Unauthorized(new { error = "Invalid admin key." });
+
+        var logsDir = Path.Combine(_env.ContentRootPath, "logs");
+
+        if (!Directory.Exists(logsDir))
+            return Json(new { error = "Logs directory not found", path = logsDir });
+
+        var logFiles = Directory.GetFiles(logsDir, "stdout_*.log")
+            .OrderByDescending(f => new FileInfo(f).LastWriteTimeUtc)
+            .ToList();
+
+        if (logFiles.Count == 0)
+            return Json(new { error = "No log files found" });
+
+        // Read lines from the most recent log file(s) until we have enough
+        // Use FileShare.ReadWrite since IIS holds the current log file open
+        var allLines = new List<string>();
+        foreach (var logFile in logFiles)
+        {
+            try
+            {
+                using var fs = new FileStream(logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using var reader = new StreamReader(fs);
+                var fileLines = new List<string>();
+                while (reader.ReadLine() is { } line)
+                    fileLines.Add(line);
+                allLines.InsertRange(0, fileLines);
+                if (allLines.Count >= lines * 2) break;
+            }
+            catch (Exception ex)
+            {
+                allLines.Add($"[Error reading {Path.GetFileName(logFile)}: {ex.Message}]");
+            }
+        }
+
+        // Filter by level if specified (e.g., "fail", "warn", "error")
+        if (!string.IsNullOrEmpty(level))
+        {
+            allLines = allLines.Where(l =>
+                l.Contains(level, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        // Return the last N lines
+        var result = allLines.TakeLast(lines).ToList();
+
+        return Json(new
+        {
+            logFile = Path.GetFileName(logFiles[0]),
+            totalFiles = logFiles.Count,
+            totalLines = result.Count,
+            requestedLines = lines,
+            filter = level,
+            lines = result
+        });
     }
 
     // === Helpers ===
