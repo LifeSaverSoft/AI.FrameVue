@@ -444,6 +444,41 @@ body {
     gap: 1.5rem;
 }
 
+/* Provider Labels */
+.provider-label {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.provider-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.openai-badge {
+    background: rgba(16, 163, 127, 0.15);
+    color: #10a37f;
+    border: 1px solid rgba(16, 163, 127, 0.3);
+}
+
+.gemini-badge {
+    background: rgba(66, 133, 244, 0.15);
+    color: #4285f4;
+    border: 1px solid rgba(66, 133, 244, 0.3);
+}
+
+.gemini-section {
+    margin-top: 2rem;
+}
+
 /* Frame Card */
 .frame-card {
     background: var(--bg-card);
@@ -1902,6 +1937,76 @@ details[open] .context-toggle::before {
 
 .browse-section {
     padding: 2rem 1rem;
+}
+
+/* Browse Source Tabs */
+.browse-source-tabs {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+
+.source-tab {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.2rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.source-tab:hover {
+    border-color: var(--gold);
+    color: var(--text-primary);
+}
+
+.source-tab.active {
+    background: rgba(201, 168, 76, 0.1);
+    border-color: var(--gold);
+    color: var(--gold);
+}
+
+.browse-content.hidden {
+    display: none;
+}
+
+.museum-source-note {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    justify-content: center;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    opacity: 0.7;
+}
+
+.filter-select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: var(--gold);
+}
+
+.museum-card-source {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    opacity: 0.7;
+    margin-top: 0.25rem;
 }
 
 .browse-search-bar {

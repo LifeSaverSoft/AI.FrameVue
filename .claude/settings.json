@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s \"https://ai.framevue.com/Training/ServerLogs?adminKey=123456&lines=5\")",
+      "Bash(rsync -ru --exclude 'appsettings.Production.json' --exclude 'logs/' --exclude 'frameVue.db*' /Users/ryandjohnson/Code/AI.FrameVue/publish/ /Volumes/Websites/FrameVue_AI/)",
+      "Bash(curl -s \"https://ai.framevue.com/Training/ServerLogs?adminKey=123456&lines=3\")",
+      "Bash(python3 -c \":*)",
+      "Bash(curl -s \"https://ai.framevue.com/Training/ServerLogs?adminKey=123456&lines=20\")"
+    ]
+  }
+}

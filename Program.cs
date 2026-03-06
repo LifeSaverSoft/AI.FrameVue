@@ -13,6 +13,12 @@ builder.Services.AddSingleton<KnowledgeBaseService>();
 // OpenAI framing service (HttpClient factory pattern)
 builder.Services.AddHttpClient<OpenAIFramingService>();
 
+// Gemini framing service (HttpClient factory pattern)
+builder.Services.AddHttpClient<GeminiFramingService>();
+
+// Museum art search service
+builder.Services.AddSingleton<MuseumArtService>();
+
 // Catalog import service
 builder.Services.AddScoped<CatalogImportService>();
 

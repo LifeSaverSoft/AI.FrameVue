@@ -179,8 +179,19 @@
     <div id="compare-selection-bar" class="compare-selection-bar hidden">
         <!-- Populated by JavaScript -->
     </div>
+    <div class="provider-label">
+        <span class="provider-badge openai-badge">OpenAI</span> gpt-4.1 + image_generation
+    </div>
     <div id="results-grid" class="results-grid">
         <!-- Populated by JavaScript -->
+    </div>
+    <div id="gemini-section" class="gemini-section hidden">
+        <div class="provider-label">
+            <span class="provider-badge gemini-badge">Gemini</span> gemini-2.5-flash-image
+        </div>
+        <div id="gemini-results-grid" class="results-grid">
+            <!-- Populated by JavaScript -->
+        </div>
     </div>
     <div id="comparison-view" class="hidden">
         <!-- Populated by JavaScript -->
@@ -205,78 +216,161 @@
 <!-- Browse Art Prints Section -->
 <section id="browse-section" class="section browse-section hidden">
     <div class="section-intro">
-        <h1>Browse <span class="gold">Art Prints</span></h1>
-        <p class="subtitle">Explore art from top publishers. Find the perfect print, then frame it with AI.</p>
+        <h1>Browse <span class="gold">Art</span></h1>
+        <p class="subtitle">Search world-class museum collections. Find the perfect artwork, then frame it with AI.</p>
     </div>
 
-    <div class="browse-search-bar">
-        <input type="text" id="browse-query" class="search-input" placeholder="Search by title, artist, or keyword..." />
-        <button class="btn-primary browse-search-btn" onclick="loadArtPrints(true)">Search</button>
-        <button class="btn-secondary browse-filter-toggle" onclick="toggleBrowseFilters()">
-            <svg viewBox="0 0 20 20" fill="none" width="16" height="16"><path d="M3 5h14M5 10h10M7 15h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            Filters
+    <div class="browse-source-tabs">
+        <button class="source-tab active" id="tab-museum" onclick="switchBrowseSource('museum')">
+            <svg viewBox="0 0 20 20" fill="none" width="16" height="16"><path d="M10 2L2 7h16L10 2zM3 8v8h2V8M8 8v8h2V8M13 8v8h2V8M18 8v8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 17h18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Museum Collections
+        </button>
+        <button class="source-tab" id="tab-catalog" onclick="switchBrowseSource('catalog')">
+            <svg viewBox="0 0 20 20" fill="none" width="16" height="16"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M7 3v14M3 7h14M3 13h14" stroke="currentColor" stroke-width="1" opacity="0.5"/></svg>
+            Our Catalog
         </button>
     </div>
 
-    <div id="browse-filter-panel" class="browse-filter-panel hidden">
-        <div class="filter-grid">
-            <div class="filter-group">
-                <label>Vendor</label>
-                <div class="combobox-wrap" id="cb-vendor-wrap">
-                    <input type="text" id="filter-vendor" class="combobox-input" placeholder="All Vendors" autocomplete="off" />
-                    <button class="combobox-clear" type="button">&times;</button>
-                    <div class="combobox-dropdown" id="filter-vendor-dropdown"></div>
+    <!-- Museum Search -->
+    <div id="museum-browse" class="browse-content">
+        <div class="browse-search-bar">
+            <input type="text" id="museum-query" class="search-input" placeholder="Search by title, artist, style, or keyword..." />
+            <button class="btn-primary browse-search-btn" onclick="searchMuseumArt(true)">Search</button>
+            <button class="btn-secondary browse-filter-toggle" onclick="toggleMuseumFilters()">
+                <svg viewBox="0 0 20 20" fill="none" width="16" height="16"><path d="M3 5h14M5 10h10M7 15h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Filters
+            </button>
+        </div>
+        <div id="museum-filter-panel" class="browse-filter-panel hidden">
+            <div class="filter-grid">
+                <div class="filter-group">
+                    <label>Medium</label>
+                    <select id="museum-filter-medium" class="filter-select" onchange="searchMuseumArt(true)">
+                        <option value="">All Mediums</option>
+                        <option value="Painting">Painting</option>
+                        <option value="Print">Print</option>
+                        <option value="Drawing">Drawing</option>
+                        <option value="Photograph">Photograph</option>
+                        <option value="Watercolor">Watercolor</option>
+                        <option value="Sculpture">Sculpture</option>
+                        <option value="Textile">Textile</option>
+                    </select>
                 </div>
-            </div>
-            <div class="filter-group">
-                <label>Artist</label>
-                <div class="combobox-wrap" id="cb-artist-wrap">
-                    <input type="text" id="filter-artist" class="combobox-input" placeholder="All Artists" autocomplete="off" />
-                    <button class="combobox-clear" type="button">&times;</button>
-                    <div class="combobox-dropdown" id="filter-artist-dropdown"></div>
+                <div class="filter-group">
+                    <label>Classification</label>
+                    <select id="museum-filter-classification" class="filter-select" onchange="searchMuseumArt(true)">
+                        <option value="">All Types</option>
+                        <option value="Painting">Paintings</option>
+                        <option value="Print">Prints</option>
+                        <option value="Drawing">Drawings</option>
+                        <option value="Photograph">Photographs</option>
+                        <option value="Poster">Posters</option>
+                        <option value="Textile">Textiles</option>
+                    </select>
                 </div>
-            </div>
-            <div class="filter-group">
-                <label>Genre</label>
-                <div class="combobox-wrap" id="cb-genre-wrap">
-                    <input type="text" id="filter-genre" class="combobox-input" placeholder="All Genres" autocomplete="off" />
-                    <button class="combobox-clear" type="button">&times;</button>
-                    <div class="combobox-dropdown" id="filter-genre-dropdown"></div>
-                </div>
-            </div>
-            <div class="filter-group">
-                <label>Style</label>
-                <div class="combobox-wrap" id="cb-style-wrap">
-                    <input type="text" id="filter-style" class="combobox-input" placeholder="All Styles" autocomplete="off" />
-                    <button class="combobox-clear" type="button">&times;</button>
-                    <div class="combobox-dropdown" id="filter-style-dropdown"></div>
-                </div>
-            </div>
-            <div class="filter-group">
-                <label>Mood</label>
-                <div class="combobox-wrap" id="cb-mood-wrap">
-                    <input type="text" id="filter-mood" class="combobox-input" placeholder="All Moods" autocomplete="off" />
-                    <button class="combobox-clear" type="button">&times;</button>
-                    <div class="combobox-dropdown" id="filter-mood-dropdown"></div>
-                </div>
-            </div>
-            <div class="filter-group">
-                <label>Orientation</label>
-                <div class="combobox-wrap" id="cb-orientation-wrap">
-                    <input type="text" id="filter-orientation" class="combobox-input" placeholder="All" autocomplete="off" />
-                    <button class="combobox-clear" type="button">&times;</button>
-                    <div class="combobox-dropdown" id="filter-orientation-dropdown"></div>
+                <div class="filter-group">
+                    <label>Style</label>
+                    <select id="museum-filter-style" class="filter-select" onchange="searchMuseumArt(true)">
+                        <option value="">All Styles</option>
+                        <option value="Impressionism">Impressionism</option>
+                        <option value="Post-Impressionism">Post-Impressionism</option>
+                        <option value="Modernism">Modernism</option>
+                        <option value="Baroque">Baroque</option>
+                        <option value="Renaissance">Renaissance</option>
+                        <option value="Abstract">Abstract</option>
+                        <option value="Realism">Realism</option>
+                        <option value="Romanticism">Romanticism</option>
+                        <option value="Art Nouveau">Art Nouveau</option>
+                        <option value="Art Deco">Art Deco</option>
+                        <option value="Japanese">Japanese</option>
+                        <option value="Chinese">Chinese</option>
+                    </select>
                 </div>
             </div>
         </div>
+        <div class="museum-source-note">
+            <span class="source-icon">
+                <svg viewBox="0 0 16 16" fill="none" width="12" height="12"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M8 5v1M8 8v3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+            </span>
+            Results from Art Institute of Chicago, Metropolitan Museum of Art &amp; Harvard Art Museums
+        </div>
+        <div id="museum-info" class="browse-info"></div>
+        <div id="museum-prints-grid" class="prints-grid"></div>
+        <div id="museum-loading" class="browse-loading hidden">
+            <div class="spinner"><div class="spinner-frame"></div></div>
+            <span>Searching museum collections...</span>
+        </div>
     </div>
 
-    <div id="browse-active-filters" class="filter-chips"></div>
-    <div id="browse-info" class="browse-info"></div>
-    <div id="browse-prints-grid" class="prints-grid"></div>
-    <div id="browse-loading" class="browse-loading hidden">
-        <div class="spinner"><div class="spinner-frame"></div></div>
-        <span>Loading prints...</span>
+    <!-- Catalog Browse (existing local prints) -->
+    <div id="catalog-browse" class="browse-content hidden">
+        <div class="browse-search-bar">
+            <input type="text" id="browse-query" class="search-input" placeholder="Search by title, artist, or keyword..." />
+            <button class="btn-primary browse-search-btn" onclick="loadArtPrints(true)">Search</button>
+            <button class="btn-secondary browse-filter-toggle" onclick="toggleBrowseFilters()">
+                <svg viewBox="0 0 20 20" fill="none" width="16" height="16"><path d="M3 5h14M5 10h10M7 15h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Filters
+            </button>
+        </div>
+        <div id="browse-filter-panel" class="browse-filter-panel hidden">
+            <div class="filter-grid">
+                <div class="filter-group">
+                    <label>Vendor</label>
+                    <div class="combobox-wrap" id="cb-vendor-wrap">
+                        <input type="text" id="filter-vendor" class="combobox-input" placeholder="All Vendors" autocomplete="off" />
+                        <button class="combobox-clear" type="button">&times;</button>
+                        <div class="combobox-dropdown" id="filter-vendor-dropdown"></div>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label>Artist</label>
+                    <div class="combobox-wrap" id="cb-artist-wrap">
+                        <input type="text" id="filter-artist" class="combobox-input" placeholder="All Artists" autocomplete="off" />
+                        <button class="combobox-clear" type="button">&times;</button>
+                        <div class="combobox-dropdown" id="filter-artist-dropdown"></div>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label>Genre</label>
+                    <div class="combobox-wrap" id="cb-genre-wrap">
+                        <input type="text" id="filter-genre" class="combobox-input" placeholder="All Genres" autocomplete="off" />
+                        <button class="combobox-clear" type="button">&times;</button>
+                        <div class="combobox-dropdown" id="filter-genre-dropdown"></div>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label>Style</label>
+                    <div class="combobox-wrap" id="cb-style-wrap">
+                        <input type="text" id="filter-style" class="combobox-input" placeholder="All Styles" autocomplete="off" />
+                        <button class="combobox-clear" type="button">&times;</button>
+                        <div class="combobox-dropdown" id="filter-style-dropdown"></div>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label>Mood</label>
+                    <div class="combobox-wrap" id="cb-mood-wrap">
+                        <input type="text" id="filter-mood" class="combobox-input" placeholder="All Moods" autocomplete="off" />
+                        <button class="combobox-clear" type="button">&times;</button>
+                        <div class="combobox-dropdown" id="filter-mood-dropdown"></div>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label>Orientation</label>
+                    <div class="combobox-wrap" id="cb-orientation-wrap">
+                        <input type="text" id="filter-orientation" class="combobox-input" placeholder="All" autocomplete="off" />
+                        <button class="combobox-clear" type="button">&times;</button>
+                        <div class="combobox-dropdown" id="filter-orientation-dropdown"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="browse-active-filters" class="filter-chips"></div>
+        <div id="browse-info" class="browse-info"></div>
+        <div id="browse-prints-grid" class="prints-grid"></div>
+        <div id="browse-loading" class="browse-loading hidden">
+            <div class="spinner"><div class="spinner-frame"></div></div>
+            <span>Loading prints...</span>
+        </div>
     </div>
 </section>
 

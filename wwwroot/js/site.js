@@ -96,6 +96,10 @@
     function resetToUpload() {
         fileInput.value = '';
         resultsGrid.innerHTML = '';
+        var geminiSection = document.getElementById('gemini-section');
+        var geminiGrid = document.getElementById('gemini-results-grid');
+        if (geminiSection) geminiSection.classList.add('hidden');
+        if (geminiGrid) geminiGrid.innerHTML = '';
         currentAnalysis = null;
         currentFile = null;
         generatedOptions = [null, null, null];
@@ -223,63 +227,125 @@
         generateFramesSequentially(file, analysis, tierNames);
     }
 
-    // === Generate frames one at a time, passing analysis ===
+    // === Generate frames in parallel, passing analysis ===
 
     async function generateFramesSequentially(file, analysis, tierNames) {
         var analysisJson = JSON.stringify(analysis);
-        var completedCount = 0;
 
+        // Create all placeholders first
+        var placeholders = [];
         for (var i = 0; i < 3; i++) {
             var displayName = tierNames[i] || defaultTierNames[i];
-
-            // Add a loading placeholder card
             var placeholder = createPlaceholderCard(displayName, i + 1);
             resultsGrid.appendChild(placeholder);
+            placeholders.push(placeholder);
+        }
 
-            try {
-                var formData = new FormData();
-                formData.append('image', file);
-                formData.append('styleIndex', i);
-                formData.append('analysisJson', analysisJson);
+        // Fire all 3 OpenAI calls in parallel
+        var promises = [0, 1, 2].map(function(i) {
+            return generateOneFrame(file, i, analysisJson, analysis, placeholders[i], tierNames);
+        });
 
-                var response = await fetch('/Home/FrameOne', {
-                    method: 'POST',
-                    body: formData
-                });
+        await Promise.allSettled(promises);
 
-                if (!response.ok) {
-                    placeholder.querySelector('.placeholder-content').innerHTML =
-                        '<p style="color:var(--error);">Failed to generate this option.</p>';
-                    continue;
-                }
+        // Enable compare if 2+ succeeded
+        var completedCount = generatedOptions.filter(function(o) { return o !== null; }).length;
+        if (completedCount >= 2) {
+            var compareBtn = document.getElementById('compare-btn');
+            if (compareBtn) compareBtn.disabled = false;
+        }
 
-                var option = await response.json();
+        // Fire Gemini calls in parallel
+        generateGeminiFrames(file, analysisJson, analysis, tierNames);
+    }
 
-                // Attach recommendation reasoning from analysis
-                if (analysis.recommendations && analysis.recommendations[i]) {
-                    option._recommendation = analysis.recommendations[i];
-                }
+    async function generateOneFrame(file, i, analysisJson, analysis, placeholder, tierNames) {
+        try {
+            var formData = new FormData();
+            formData.append('image', file);
+            formData.append('styleIndex', i);
+            formData.append('analysisJson', analysisJson);
 
-                // Replace placeholder with the real card
-                var card = createFrameCard(option, i + 1);
-                resultsGrid.replaceChild(card, placeholder);
+            var response = await fetch('/Home/FrameOne', {
+                method: 'POST',
+                body: formData
+            });
 
-                // Store for comparison and regeneration
-                generatedOptions[i] = option;
-                generatedCards[i] = card;
-                completedCount++;
-
-                // Enable compare button after 2+ frames
-                if (completedCount >= 2) {
-                    var compareBtn = document.getElementById('compare-btn');
-                    if (compareBtn) compareBtn.disabled = false;
-                }
-
-            } catch (err) {
-                console.error('Frame generation failed for style ' + i + ':', err);
+            if (!response.ok) {
                 placeholder.querySelector('.placeholder-content').innerHTML =
                     '<p style="color:var(--error);">Failed to generate this option.</p>';
+                return;
             }
+
+            var option = await response.json();
+
+            if (analysis.recommendations && analysis.recommendations[i]) {
+                option._recommendation = analysis.recommendations[i];
+            }
+
+            var card = createFrameCard(option, i + 1);
+            resultsGrid.replaceChild(card, placeholder);
+
+            generatedOptions[i] = option;
+            generatedCards[i] = card;
+        } catch (err) {
+            console.error('Frame generation failed for style ' + i + ':', err);
+            placeholder.querySelector('.placeholder-content').innerHTML =
+                '<p style="color:var(--error);">Failed to generate this option.</p>';
+        }
+    }
+
+    // === Gemini frame generation ===
+
+    async function generateGeminiFrames(file, analysisJson, analysis, tierNames) {
+        var geminiSection = document.getElementById('gemini-section');
+        var geminiGrid = document.getElementById('gemini-results-grid');
+        if (!geminiSection || !geminiGrid) return;
+
+        geminiSection.classList.remove('hidden');
+        geminiGrid.innerHTML = '';
+
+        var placeholders = [];
+        for (var i = 0; i < 3; i++) {
+            var displayName = tierNames[i] || defaultTierNames[i];
+            var placeholder = createPlaceholderCard(displayName, i + 1);
+            geminiGrid.appendChild(placeholder);
+            placeholders.push(placeholder);
+        }
+
+        var promises = [0, 1, 2].map(function(i) {
+            return generateOneGeminiFrame(file, i, analysisJson, analysis, placeholders[i], geminiGrid);
+        });
+
+        await Promise.allSettled(promises);
+    }
+
+    async function generateOneGeminiFrame(file, i, analysisJson, analysis, placeholder, geminiGrid) {
+        try {
+            var formData = new FormData();
+            formData.append('image', file);
+            formData.append('styleIndex', i);
+            formData.append('analysisJson', analysisJson);
+
+            var response = await fetch('/Home/GeminiFrameOne', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                var errData = await response.json().catch(function() { return {}; });
+                placeholder.querySelector('.placeholder-content').innerHTML =
+                    '<p style="color:var(--error);">' + (errData.error || 'Gemini generation failed.') + '</p>';
+                return;
+            }
+
+            var option = await response.json();
+            var card = createFrameCard(option, i + 1);
+            geminiGrid.replaceChild(card, placeholder);
+        } catch (err) {
+            console.error('Gemini frame generation failed for style ' + i + ':', err);
+            placeholder.querySelector('.placeholder-content').innerHTML =
+                '<p style="color:var(--error);">Gemini generation failed.</p>';
         }
     }
 
@@ -1680,9 +1746,8 @@
             showSection(uploadSection);
         } else if (mode === 'browse') {
             showSection(browseSection);
-            if (!document.getElementById('browse-prints-grid').children.length) {
-                loadBrowseFilters();
-                loadArtPrints(true);
+            if (!document.getElementById('museum-prints-grid').children.length) {
+                searchMuseumArt(true);
             }
         } else if (mode === 'discover') {
             showSection(discoverSection);
@@ -2006,6 +2071,117 @@
     if (browseQuery) {
         browseQuery.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') loadArtPrints(true);
+        });
+    }
+
+    // =========================================================================
+    // MUSEUM ART SEARCH
+    // =========================================================================
+
+    var museumLoading = false;
+
+    window.switchBrowseSource = function(source) {
+        document.querySelectorAll('.source-tab').forEach(function(t) { t.classList.remove('active'); });
+        document.getElementById('tab-' + source)?.classList.add('active');
+        document.getElementById('museum-browse').classList.toggle('hidden', source !== 'museum');
+        document.getElementById('catalog-browse').classList.toggle('hidden', source !== 'catalog');
+
+        if (source === 'catalog' && !document.getElementById('browse-prints-grid').children.length) {
+            loadBrowseFilters();
+            loadArtPrints(true);
+        }
+        if (source === 'museum' && !document.getElementById('museum-prints-grid').children.length) {
+            searchMuseumArt(true);
+        }
+    };
+
+    window.toggleMuseumFilters = function() {
+        var panel = document.getElementById('museum-filter-panel');
+        panel.classList.toggle('hidden');
+    };
+
+    window.searchMuseumArt = function(reset) {
+        if (museumLoading) return;
+        museumLoading = true;
+
+        var grid = document.getElementById('museum-prints-grid');
+        var loadEl = document.getElementById('museum-loading');
+        var infoEl = document.getElementById('museum-info');
+
+        if (reset) grid.innerHTML = '';
+        if (loadEl) loadEl.classList.remove('hidden');
+        if (infoEl) infoEl.textContent = '';
+
+        var params = new URLSearchParams();
+        var q = document.getElementById('museum-query')?.value;
+        var medium = document.getElementById('museum-filter-medium')?.value;
+        var classification = document.getElementById('museum-filter-classification')?.value;
+        var style = document.getElementById('museum-filter-style')?.value;
+
+        if (q) params.set('query', q);
+        if (medium) params.set('medium', medium);
+        if (classification) params.set('classification', classification);
+        if (style) params.set('style', style);
+        params.set('pageSize', 24);
+
+        fetch('/Home/SearchMuseumArt?' + params)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                renderMuseumCards(data.artworks, grid);
+                if (infoEl) infoEl.textContent = data.artworks.length + ' artworks found from museum collections';
+            })
+            .catch(function(err) {
+                console.error('Museum search failed:', err);
+                if (infoEl) infoEl.textContent = 'Error searching museum collections';
+            })
+            .finally(function() {
+                museumLoading = false;
+                if (loadEl) loadEl.classList.add('hidden');
+            });
+    };
+
+    function renderMuseumCards(artworks, grid) {
+        artworks.forEach(function(a) {
+            var card = document.createElement('div');
+            card.className = 'print-card';
+            card.onclick = function() {
+                showPrintDetail({
+                    title: a.title,
+                    artist: a.artist,
+                    genre: a.classification,
+                    style: a.style,
+                    description: (a.medium ? a.medium + '. ' : '') + (a.date ? a.date + '. ' : '') + a.source,
+                    imageUrl: a.imageUrl,
+                    thumbnailUrl: a.thumbnailUrl,
+                    sourceUrl: a.sourceUrl,
+                    source: a.source
+                });
+            };
+
+            card.innerHTML =
+                '<img class="print-card-image" src="' + esc(a.thumbnailUrl || a.imageUrl) + '" alt="' + esc(a.title) + '" loading="lazy" ' +
+                    'onerror="this.onerror=null;this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';" />' +
+                '<div class="print-card-placeholder" style="display:none;">' +
+                    '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>' +
+                    '<span class="print-card-placeholder-title">' + esc(a.title) + '</span>' +
+                    '<span class="print-card-placeholder-artist">' + esc(a.artist) + '</span>' +
+                '</div>' +
+                '<div class="print-card-info">' +
+                    '<h4 class="print-card-title">' + esc(a.title) + '</h4>' +
+                    '<p class="print-card-artist">' + esc(a.artist) + '</p>' +
+                    (a.date ? '<p class="print-card-date">' + esc(a.date) + '</p>' : '') +
+                    '<p class="museum-card-source">' + esc(a.source) + '</p>' +
+                '</div>';
+
+            grid.appendChild(card);
+        });
+    }
+
+    // Museum search on Enter
+    var museumQuery = document.getElementById('museum-query');
+    if (museumQuery) {
+        museumQuery.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') searchMuseumArt(true);
         });
     }
 

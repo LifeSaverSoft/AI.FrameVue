@@ -550,17 +550,20 @@ public class OpenAIFramingService
             : $"MOULDING: {style.MouldingDescription}\nMAT: {style.MatDescription}";
 
         return "You are generating a professional framed mockup of the provided artwork.\n\n" +
-            "CRITICAL RULES — you MUST follow these:\n" +
+            "YOU MUST DO TWO THINGS:\n" +
+            "1. Use the image_generation tool to generate a photorealistic image of the artwork professionally matted and framed\n" +
+            "2. Return a JSON text response with the design details\n\n" +
+            "CRITICAL IMAGE GENERATION RULES:\n" +
+            "- You MUST call the image_generation tool — do NOT skip image generation\n" +
             "- Do NOT alter the artwork in any way\n" +
             "- Preserve the exact proportions of the original image\n" +
             "- Only add the frame, mat, and environment around the artwork\n" +
-            "- The artwork itself must remain completely unchanged\n\n" +
+            "- The artwork itself must remain completely unchanged\n" +
+            "- The background MUST be completely transparent (no wall, no background — just the framed art with mat)\n" +
+            "- The framing must be proportional and realistic\n\n" +
             $"Artwork analysis: {analysis.ArtStyle} ({analysis.Medium}), dominant colors: {colorList}, mood: {analysis.Mood}\n\n" +
             $"DESIGN: \"{displayName}\" — {style.Tier}\n\n" +
             $"{framingInstruction}\n\n" +
-            "Generate the artwork professionally matted and framed with these exact specifications. " +
-            "The background MUST be completely transparent (no wall, no background — just the framed art with mat). " +
-            "The framing must be proportional and realistic.\n\n" +
             "IMPORTANT: Your text response must be ONLY this JSON (no other text):\n" +
             $"{{\"styleName\":\"{displayName}\",\"moulding\":{{\"style\":\"<frame style>\",\"color\":\"<color/finish>\",\"width\":\"<approximate width>\",\"description\":\"<why this works>\"}},\"mat\":{{\"color\":\"<mat color>\",\"style\":\"<single or double mat>\",\"description\":\"<why this works>\"}}}}";
     }
@@ -945,8 +948,13 @@ public class OpenAIFramingService
                 $"OpenAI API returned {response.StatusCode} for style '{style.StyleName}'");
         }
 
-        _logger.LogInformation("Successfully received framed image for style: {Style}", style.StyleName);
-        return ParseFrameResponse(responseBody, style);
+        _logger.LogInformation("Successfully received API response for style: {Style}", style.StyleName);
+        _logger.LogInformation("Response body preview: {Preview}",
+            responseBody.Length > 1000 ? responseBody[..1000] + "..." : responseBody);
+        var frameOption = ParseFrameResponse(responseBody, style);
+        _logger.LogInformation("Parsed frame option for {Style}: image length={ImageLen}",
+            style.StyleName, frameOption.FramedImageBase64?.Length ?? 0);
+        return frameOption;
     }
 
     // ==========================================================================
@@ -1157,6 +1165,7 @@ public class OpenAIFramingService
                 continue;
 
             var type = typeProp.GetString();
+            _logger.LogInformation("ParseFrameResponse output item type: {Type}", type);
 
             if (type == "image_generation_call")
             {

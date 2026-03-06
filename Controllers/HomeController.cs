@@ -12,21 +12,27 @@ public class HomeController : Controller
 {
     private readonly ILogger<HomeController> _logger;
     private readonly OpenAIFramingService _framingService;
+    private readonly GeminiFramingService _geminiService;
     private readonly CatalogImportService _catalogImport;
     private readonly KnowledgeBaseService _knowledgeBase;
+    private readonly MuseumArtService _museumArt;
     private readonly AppDbContext _db;
 
     public HomeController(
         ILogger<HomeController> logger,
         OpenAIFramingService framingService,
+        GeminiFramingService geminiService,
         CatalogImportService catalogImport,
         KnowledgeBaseService knowledgeBase,
+        MuseumArtService museumArt,
         AppDbContext db)
     {
         _logger = logger;
         _framingService = framingService;
+        _geminiService = geminiService;
         _catalogImport = catalogImport;
         _knowledgeBase = knowledgeBase;
+        _museumArt = museumArt;
         _db = db;
     }
 
@@ -190,6 +196,48 @@ public class HomeController : Controller
     }
 
     /// <summary>
+    /// Generate a single framed mockup using Gemini.
+    /// </summary>
+    [HttpPost]
+    [RequestSizeLimit(20 * 1024 * 1024)]
+    public async Task<IActionResult> GeminiFrameOne(IFormFile image, int styleIndex, string analysisJson)
+    {
+        if (!_geminiService.IsConfigured)
+            return BadRequest(new { error = "Gemini API is not configured." });
+
+        if (image == null || image.Length == 0)
+            return BadRequest(new { error = "No image was uploaded." });
+
+        EnhancedImageAnalysis analysis;
+        try
+        {
+            analysis = JsonSerializer.Deserialize<EnhancedImageAnalysis>(analysisJson, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            }) ?? new EnhancedImageAnalysis();
+        }
+        catch
+        {
+            analysis = new EnhancedImageAnalysis();
+        }
+
+        using var ms = new MemoryStream();
+        await image.CopyToAsync(ms);
+        var imageData = ms.ToArray();
+
+        try
+        {
+            var option = await _geminiService.FrameImageOneAsync(imageData, image.ContentType, styleIndex, analysis);
+            return Json(option);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Gemini failed to frame image for style index {StyleIndex}", styleIndex);
+            return StatusCode(500, new { error = "Failed to generate Gemini framing option." });
+        }
+    }
+
+    /// <summary>
     /// Composite a framed artwork onto a user's wall photo.
     /// </summary>
     [HttpPost]
@@ -313,6 +361,28 @@ public class HomeController : Controller
         };
 
         var result = await _catalogImport.SearchArtPrintsAsync(request);
+        return Json(result);
+    }
+
+    /// <summary>
+    /// Search art across museum APIs (Chicago, Met, Harvard).
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> SearchMuseumArt(
+        string? query, string? medium, string? classification, string? style,
+        int page = 1, int pageSize = 24)
+    {
+        var request = new MuseumArtSearchRequest
+        {
+            Query = query,
+            Medium = medium,
+            Classification = classification,
+            Style = style,
+            Page = page,
+            PageSize = pageSize
+        };
+
+        var result = await _museumArt.SearchAsync(request);
         return Json(result);
     }
 
