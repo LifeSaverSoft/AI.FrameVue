@@ -381,8 +381,8 @@ public class CatalogEnrichmentService
 
                 await db.SaveChangesAsync();
 
-                // Rate limiting — 200ms between API calls
-                await Task.Delay(200);
+                // Rate limiting — 1s between API calls to avoid starving framing requests
+                await Task.Delay(1000);
             }
             catch (Exception ex)
             {
@@ -487,7 +487,7 @@ public class CatalogEnrichmentService
                 }
 
                 await db.SaveChangesAsync();
-                await Task.Delay(200);
+                await Task.Delay(1000);
             }
             catch (Exception ex)
             {
@@ -570,7 +570,7 @@ public class CatalogEnrichmentService
                 }
 
                 await db.SaveChangesAsync();
-                await Task.Delay(200);
+                await Task.Delay(1000);
             }
             catch (Exception ex)
             {
@@ -919,17 +919,36 @@ public class CatalogEnrichmentService
         var json = JsonSerializer.Serialize(requestBody);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        var response = await client.PostAsync("https://api.openai.com/v1/responses", content);
-        var responseBody = await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
+        // Retry with exponential backoff on 429 (TooManyRequests)
+        const int maxRetries = 3;
+        for (int attempt = 0; attempt <= maxRetries; attempt++)
         {
-            _logger.LogError("OpenAI vision error: {Status} - {Body}", response.StatusCode,
-                responseBody.Length > 300 ? responseBody[..300] : responseBody);
-            return null;
+            var response = await client.PostAsync("https://api.openai.com/v1/responses", content);
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests && attempt < maxRetries)
+            {
+                var delay = (int)Math.Pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
+                _logger.LogWarning("Rate limited (429), retrying in {Delay}ms (attempt {Attempt}/{Max})",
+                    delay, attempt + 1, maxRetries);
+                await Task.Delay(delay);
+
+                // Re-create content since it was consumed
+                content = new StringContent(json, Encoding.UTF8, "application/json");
+                continue;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("OpenAI vision error: {Status} - {Body}", response.StatusCode,
+                    responseBody.Length > 300 ? responseBody[..300] : responseBody);
+                return null;
+            }
+
+            return ParseColorAnalysis(responseBody);
         }
 
-        return ParseColorAnalysis(responseBody);
+        return null;
     }
 
     private static string BuildMouldingPrompt()
