@@ -29,7 +29,10 @@ public class CatalogEnrichmentService
         _httpClientFactory = httpClientFactory;
         _s3Client = s3Client;
         _bucketName = configuration["AWS:BucketName"] ?? "lifesaversoft";
-        _apiKey = configuration["OpenAI:ApiKey"] ?? "";
+        // Use dedicated enrichment key if available, otherwise fall back to main key
+        _apiKey = configuration["OpenAI:EnrichmentApiKey"] is string ek && !string.IsNullOrEmpty(ek)
+            ? ek
+            : configuration["OpenAI:ApiKey"] ?? "";
         _analysisModel = configuration["OpenAI:AnalysisModel"] ?? "gpt-4o-mini";
         _logger = logger;
     }
