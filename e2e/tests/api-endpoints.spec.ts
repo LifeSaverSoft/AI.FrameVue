@@ -99,6 +99,23 @@ test.describe('API Endpoints', () => {
     expect(Array.isArray(json.prints)).toBe(true);
   });
 
+  test('GET /Home/SearchMuseumArt returns museum artworks', async ({ request }) => {
+    const response = await request.get('/Home/SearchMuseumArt?query=landscape&pageSize=12');
+    expect(response.status()).toBe(200);
+    const json = await response.json();
+    expect(json).toHaveProperty('artworks');
+    expect(json).toHaveProperty('totalCount');
+    expect(json).toHaveProperty('query');
+    expect(Array.isArray(json.artworks)).toBe(true);
+  });
+
+  test('GET /Home/SearchMuseumArt with filters returns results', async ({ request }) => {
+    const response = await request.get('/Home/SearchMuseumArt?medium=Painting&classification=Painting');
+    expect(response.status()).toBe(200);
+    const json = await response.json();
+    expect(json).toHaveProperty('artworks');
+  });
+
   test('POST /Home/AnalyzeRoom without image returns 400', async ({ request }) => {
     const response = await request.post('/Home/AnalyzeRoom');
     expect(response.status()).toBe(400);

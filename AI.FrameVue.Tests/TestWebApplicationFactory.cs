@@ -35,6 +35,8 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
                 ["OpenAI:ApiKey"] = "test-key-not-real",
                 ["OpenAI:AnalysisModel"] = "gpt-4o-mini",
                 ["OpenAI:GenerationModel"] = "gpt-image-1",
+                ["Gemini:ApiKey"] = "test-gemini-key",
+                ["Gemini:GenerationModel"] = "gemini-2.5-flash-image",
                 ["Training:AdminKey"] = "test-admin-key",
                 ["KnowledgeBase:Path"] = _knowledgeBasePath,
                 ["ConnectionStrings:DefaultConnection"] = $"Data Source={_dbPath}"
@@ -53,7 +55,11 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
             services.AddHttpClient<OpenAIFramingService>()
                 .ConfigurePrimaryHttpMessageHandler(() => new MockOpenAIHandler());
 
-            // Replace the generic HttpClient factory handler (used by CatalogEnrichmentService and AnalyzePrint)
+            // Replace the HttpClient for GeminiFramingService with mock handler
+            services.AddHttpClient<GeminiFramingService>()
+                .ConfigurePrimaryHttpMessageHandler(() => new MockOpenAIHandler());
+
+            // Replace the generic HttpClient factory handler (used by CatalogEnrichmentService, AnalyzePrint, MuseumArtService)
             services.AddHttpClient("", client => { })
                 .ConfigurePrimaryHttpMessageHandler(() => new MockOpenAIHandler());
         });

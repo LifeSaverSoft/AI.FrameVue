@@ -2,13 +2,13 @@
 
 ## Project Type & Technology Stack
 - **Type**: Web application — AI-powered custom picture framing advisor
-- **Backend**: ASP.NET Core 8.0, C# 12, .NET 8
+- **Backend**: ASP.NET Core 10.0, C# 13, .NET 10
 - **Frontend**: Vanilla JavaScript (IIFE pattern), HTML5/CSS3 — NOT Vue.js despite the name
-- **Database**: SQLite (EF Core 8.0 with Migrations — auto-applied at startup via `Database.Migrate()`)
-- **AI**: OpenAI API — `gpt-4o-mini` (text analysis), `gpt-4o` + `image_generation` tool (image generation via Responses API)
+- **Database**: SQLite (EF Core 10.0 with Migrations — auto-applied at startup via `Database.Migrate()`)
+- **AI**: OpenAI API — `gpt-4o-mini` (text analysis), `gpt-4.1` + `image_generation` tool (image generation via Responses API); Google Gemini `gemini-2.5-flash-image` (alternative frame mockup generation)
 - **Hosting**: IIS on Windows Server, deployed via rsync over SMB
 - **Source Control**: Git + GitHub
-- **Testing**: xUnit + WebApplicationFactory + MockOpenAIHandler (64 unit tests), Playwright E2E tests (100 tests)
+- **Testing**: xUnit + WebApplicationFactory + MockOpenAIHandler (79 unit tests), Playwright E2E tests (107 tests)
 - **E2E**: Playwright (Node.js + TypeScript) in `e2e/` directory
 
 ## Project Overview
@@ -39,18 +39,31 @@
 - Weighted art print scoring: color harmony (4x), mood (3x), style (3x), genre (2x), color temperature (2x), orientation (1x)
 
 ### OpenAI API
-- Models: `gpt-4o-mini` (analysis), `gpt-4o` with `image_generation` tool (generation — `gpt-image-1` no longer works as standalone model on Responses API)
+- Models: `gpt-4o-mini` (analysis), `gpt-4.1` with `image_generation` tool (generation — `gpt-image-1` no longer works as standalone model on Responses API)
 - All calls go through `v1/responses` endpoint (not chat completions)
 - Mockups: 1536x1024 high quality; Previews: 1536x1024 medium quality
+
+### Gemini API (Alternative)
+- Model: `gemini-2.5-flash-image` via `v1beta/models/{model}:generateContent` endpoint
+- Used for side-by-side comparison with OpenAI frame mockups (3 tiers generated in parallel after OpenAI)
+- `GeminiFramingService.cs` — typed HttpClient, parses `candidates[0].content.parts` for inline image + JSON text
+- Configured via `Gemini:ApiKey` and `Gemini:GenerationModel` in appsettings
+
+### Museum Art APIs
+- `MuseumArtService.cs` — searches 3 free public-domain museum APIs in parallel, interleaves results
+- Art Institute of Chicago (`api.artic.edu`), Metropolitan Museum of Art (`collectionapi.metmuseum.org`), Harvard Art Museums (`api.harvardartmuseums.org` — requires API key via `MuseumApi:HarvardApiKey`)
+- Endpoint: `GET /Home/SearchMuseumArt?query=&medium=&classification=&style=&page=&pageSize=`
 
 ### File Map
 | File | Purpose |
 |------|---------|
 | `Services/OpenAIFramingService.cs` | Core AI: two-pass analysis, knowledge injection, image generation, wall refine, color matching |
+| `Services/GeminiFramingService.cs` | Alternative AI: Gemini frame mockup generation, parses image+text response |
+| `Services/MuseumArtService.cs` | Museum API search: Chicago, Met, Harvard — parallel queries, interleaved results |
 | `Services/KnowledgeBaseService.cs` | Knowledge base CRUD, file watcher, SQLite catalog queries, prompt building, color-distance matching, server-side catalog product matching for framing recommendations |
 | `Services/CatalogImportService.cs` | SQL Server -> SQLite import (mouldings/mats only), art print search/filter/browse |
 | `Services/CatalogEnrichmentService.cs` | AI image analysis via OpenAI vision for catalog items and art prints |
-| `Controllers/HomeController.cs` | Main app: Analyze, FrameOne, WallPreview, WallRefine, SourceProducts, Feedback, StyleCount, BrowseArtPrints, ArtPrintFilters, DiscoverPrints, SimilarPrints, AnalyzePrint, AnalyzeRoom |
+| `Controllers/HomeController.cs` | Main app: Analyze, FrameOne, GeminiFrameOne, WallPreview, WallRefine, SourceProducts, Feedback, StyleCount, BrowseArtPrints, ArtPrintFilters, DiscoverPrints, SimilarPrints, AnalyzePrint, AnalyzeRoom, SearchMuseumArt |
 | `Controllers/TrainingController.cs` | Admin: Rules/Guides/Examples CRUD, catalog import, enrichment, browse, art print management |
 | `Views/Home/Index.cshtml` | Main app UI — upload, browse, discover, framing, comparison, feedback, wall preview, print detail modal |
 | `Views/Training/Index.cshtml` | Training admin — standalone page with 7 tabs: Rules, Guides, Examples, Browse Catalog, Import, AI Enrichment, Art Prints |
@@ -111,8 +124,12 @@
 27. Browse filter fix — ComboBox getFilterValue falls back to input text when no dropdown selection made
 28. EF Core Migrations — replaced `EnsureCreated()` with `Database.Migrate()` for incremental schema updates without data loss
 29. S3 image URL fix — `BuildImageUrl()` strips trailing `-{digits}` size suffixes; enrichment service tries fallback URL; S3 bucket made public
+30. Museum Art Gallery — browse public-domain art from Art Institute of Chicago, Met Museum, Harvard Art Museums; tabbed UI (Museum Collections / Our Catalog); search + filter by medium/classification/style; click to open detail modal + "Frame This" integration
+31. Gemini frame mockup generation — `GeminiFramingService` using `gemini-2.5-flash-image`; generates 3 tiers in parallel alongside OpenAI for side-by-side comparison
+32. Parallel frame generation — OpenAI's 3 Good/Better/Best tiers now fire in parallel instead of sequentially
+33. .NET 10 upgrade — project upgraded from .NET 8.0 to .NET 10.0; EF Core 10.0.3, Microsoft.Data.SqlClient 6.1.4
 
-## Current Status (Last Updated: 2026-03-04)
+## Current Status (Last Updated: 2026-03-06)
 
 ### What's Working in Production (ai.framevue.com)
 - Full app deployed and running on IIS
@@ -129,19 +146,27 @@
 - Photo Lighting selector in upload form (optional user hint: daylight/incandescent/fluorescent/flash/mixed)
 - Color matching uses estimatedTrueColors when color cast detected
 - Art print cards show styled placeholders with title/artist/genre when S3 images unavailable
+- Museum art gallery — browse/search public-domain art from 3 museum APIs
+- Gemini side-by-side — frame mockups generated by both OpenAI and Gemini for comparison
+- Parallel frame generation — all 3 tiers fire simultaneously
 
 ### Where We Left Off
-- Fixed S3 image URL mismatch — `BuildImageUrl()` now strips trailing `-{digits}` size suffixes (e.g., `R103105-46` → `R103105.jpg`)
-- Added fallback URL logic in enrichment service — tries full URL first, then stripped URL
-- Catalog re-imported with corrected URLs, art prints re-seeded and enriched (45/45)
-- AI enrichment running on mouldings and mats (in progress)
-- 73 unit tests + 100 Playwright E2E tests passing
+- Upgraded project from .NET 8.0 to .NET 10.0 (EF Core 10.0.3, SqlClient 6.1.4)
+- Added museum art gallery (Art Institute of Chicago, Met Museum, Harvard) with tabbed browse UI
+- Added Gemini `gemini-2.5-flash-image` as alternative frame mockup generator (parallel with OpenAI)
+- Switched OpenAI generation model from `gpt-4o` to `gpt-4.1`
+- OpenAI frame generation now parallel (was sequential)
+- Fixed `MuseumArtService` crash on empty results (`.Max()` on empty sequence)
+- Added E2E global setup to auto-seed art prints before tests
+- 79 unit tests + 107 Playwright E2E tests passing
 
 ### What Needs to Be Done Next
-1. **Continue AI enrichment** — 37K mouldings + 7K mats, running in batches of 20 via production API
-2. **Color normalization Layer 3** — server-side RGB channel normalization as fallback (documented in `Docs/color-normalization-plan.md`)
-3. **Add more prints per vendor** — currently 15 each, use admin CRUD to add more over time
-4. **Browser testing** — all features in production
+1. **Deploy .NET 10 upgrade to production** — server needs .NET 10 runtime installed first
+2. **Continue AI enrichment** — 37K mouldings + 7K mats, running in batches of 20 via production API
+3. **Color normalization Layer 3** — server-side RGB channel normalization as fallback (documented in `Docs/color-normalization-plan.md`)
+4. **Add more prints per vendor** — currently 15 each, use admin CRUD to add more over time
+5. **Browser testing** — all features in production
+6. **Harvard API key** — configure `MuseumApi:HarvardApiKey` for Harvard Art Museums results
 
 ## User Preferences
 - Target users: gifted framers who are NOT tech-savvy (hence voice dictation, large tap targets)
@@ -164,17 +189,18 @@
 ## Test Suite
 - Location: `AI.FrameVue.Tests/`
 - Run: `dotnet test AI.FrameVue.Tests/` or `make test/unit`
-- 73 tests: HomeController (29), TrainingController (18), KnowledgeBaseService (9), CatalogImportService (17)
-- Uses `TestWebApplicationFactory` with in-memory SQLite, `MockOpenAIHandler` for all OpenAI calls
-- All tests run without network access (~450ms)
+- 79 tests: HomeController (35), TrainingController (18), KnowledgeBaseService (9), CatalogImportService (17)
+- Uses `TestWebApplicationFactory` with in-memory SQLite, `MockOpenAIHandler` for all OpenAI/Gemini/Museum API calls
+- All tests run without network access (~850ms)
 
 ## Playwright E2E Tests
 - Location: `e2e/` (Node.js/TypeScript project)
 - Run: `cd e2e && npx playwright test`
 - Config: `e2e/playwright.config.ts` — targets `http://localhost:5191`, auto-starts `dotnet run`
+- Global setup: `e2e/global-setup.ts` — auto-seeds art prints via `/Training/SeedArtPrints` if DB is empty
 - Specs: `e2e/tests/*.spec.ts` — one file per major app section
-- 100 tests across 9 spec files: home, upload-analyze, browse-prints, discovery-wizard, room-advisor, guide, training-admin, browse-catalog, api-endpoints
-- Covers: Home/mode-selector, Upload flow, Browse prints, Discovery wizard, Room Advisor, Print detail modal, Training admin auth/tabs/CRUD, Catalog browse, User Guide, all API endpoints
+- 107 tests across 9 spec files: home, upload-analyze, browse-prints (museum + catalog tabs), discovery-wizard, room-advisor, guide, training-admin, browse-catalog, api-endpoints
+- Covers: Home/mode-selector, Upload flow, Museum art search, Catalog browse, Discovery wizard, Room Advisor, Print detail modal, Training admin auth/tabs/CRUD, User Guide, all API endpoints
 - **Rule**: Every new feature MUST include new or updated Playwright specs
 - Test fixtures: `e2e/fixtures/test-artwork.png`, `e2e/fixtures/test-room.png`
 - Reports: `e2e/playwright-report/index.html` (generated after each run)

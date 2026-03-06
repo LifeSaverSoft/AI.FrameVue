@@ -40,6 +40,15 @@ public class MuseumArtService
         // Interleave results from different sources
         var grouped = allResults.GroupBy(a => a.Source).Select(g => g.ToList()).ToList();
         var interleaved = new List<MuseumArtwork>();
+        if (grouped.Count == 0)
+        {
+            return new MuseumArtSearchResult
+            {
+                Artworks = new List<MuseumArtwork>(),
+                TotalCount = 0,
+                Query = request.Query ?? ""
+            };
+        }
         var maxLen = grouped.Max(g => g.Count);
         for (int i = 0; i < maxLen; i++)
         {

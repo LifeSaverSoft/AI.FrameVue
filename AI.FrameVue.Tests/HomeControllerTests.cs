@@ -484,4 +484,115 @@ public class HomeControllerTests : IClassFixture<TestWebApplicationFactory>
             Assert.True(rec.TryGetProperty("matColor", out _), "Each rec should have matColor");
         }
     }
+
+    // =========================================================================
+    // Museum Art Search
+    // =========================================================================
+
+    [Fact]
+    public async Task SearchMuseumArt_NoQuery_ReturnsResults()
+    {
+        var response = await _client.GetAsync("/Home/SearchMuseumArt");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+        Assert.True(doc.RootElement.TryGetProperty("artworks", out var artworks));
+        Assert.True(artworks.GetArrayLength() >= 1, "Should return artworks from museum APIs");
+    }
+
+    [Fact]
+    public async Task SearchMuseumArt_WithQuery_ReturnsFilteredResults()
+    {
+        var response = await _client.GetAsync("/Home/SearchMuseumArt?query=landscape");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+        Assert.True(doc.RootElement.TryGetProperty("artworks", out _));
+        Assert.True(doc.RootElement.TryGetProperty("query", out var query));
+        Assert.Equal("landscape", query.GetString());
+    }
+
+    [Fact]
+    public async Task SearchMuseumArt_WithFilters_ReturnsResults()
+    {
+        var response = await _client.GetAsync("/Home/SearchMuseumArt?medium=Painting&style=Impressionism");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+        Assert.True(doc.RootElement.TryGetProperty("artworks", out _));
+    }
+
+    [Fact]
+    public async Task SearchMuseumArt_ArtworksHaveRequiredFields()
+    {
+        var response = await _client.GetAsync("/Home/SearchMuseumArt?query=painting");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+        var artworks = doc.RootElement.GetProperty("artworks");
+        foreach (var artwork in artworks.EnumerateArray())
+        {
+            Assert.True(artwork.TryGetProperty("id", out _), "Should have id");
+            Assert.True(artwork.TryGetProperty("title", out _), "Should have title");
+            Assert.True(artwork.TryGetProperty("imageUrl", out _), "Should have imageUrl");
+            Assert.True(artwork.TryGetProperty("source", out _), "Should have source");
+        }
+    }
+
+    // =========================================================================
+    // Gemini Framing
+    // =========================================================================
+
+    [Fact]
+    public async Task GeminiFrameOne_ValidInput_ReturnsFrameOption()
+    {
+        var analysis = new
+        {
+            artStyle = "Impressionist",
+            medium = "Oil",
+            subjectMatter = "Landscape",
+            era = "Contemporary",
+            dominantColors = new[] { "#4A6741" },
+            colorTemperature = "warm",
+            valueRange = "full-range",
+            textureQuality = "textured",
+            mood = "serene",
+            recommendations = new[]
+            {
+                new
+                {
+                    tier = "Natural Harmony", tierName = "Natural Harmony",
+                    mouldingStyle = "Wood", mouldingColor = "Oak",
+                    mouldingWidth = "1.5", matColor = "White", matStyle = "Single",
+                    reasoning = "Test"
+                }
+            }
+        };
+
+        using var content = new MultipartFormDataContent();
+        var imageContent = new ByteArrayContent(TinyPng);
+        imageContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        content.Add(imageContent, "image", "test.png");
+        content.Add(new StringContent("0"), "styleIndex");
+        content.Add(new StringContent(JsonSerializer.Serialize(analysis)), "analysisJson");
+
+        var response = await _client.PostAsync("/Home/GeminiFrameOne", content);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+        Assert.True(doc.RootElement.TryGetProperty("styleName", out _), "Should have styleName");
+        Assert.True(doc.RootElement.TryGetProperty("framedImageBase64", out _), "Should have framedImageBase64");
+    }
+
+    [Fact]
+    public async Task GeminiFrameOne_NoImage_ReturnsBadRequest()
+    {
+        using var content = new MultipartFormDataContent();
+        content.Add(new StringContent("0"), "styleIndex");
+        content.Add(new StringContent("{}"), "analysisJson");
+
+        var response = await _client.PostAsync("/Home/GeminiFrameOne", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
 }

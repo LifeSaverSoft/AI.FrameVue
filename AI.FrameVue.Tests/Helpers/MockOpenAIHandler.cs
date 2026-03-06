@@ -12,6 +12,22 @@ public class MockOpenAIHandler : DelegatingHandler
     protected override Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        var url = request.RequestUri?.ToString() ?? "";
+
+        // Museum API mocks
+        if (url.Contains("api.artic.edu"))
+            return Task.FromResult(CreateChicagoResponse());
+        if (url.Contains("collectionapi.metmuseum.org") && url.Contains("/search"))
+            return Task.FromResult(CreateMetSearchResponse());
+        if (url.Contains("collectionapi.metmuseum.org") && url.Contains("/objects/"))
+            return Task.FromResult(CreateMetObjectResponse());
+        if (url.Contains("api.harvardartmuseums.org"))
+            return Task.FromResult(CreateHarvardResponse());
+
+        // Gemini API mock
+        if (url.Contains("generativelanguage.googleapis.com"))
+            return Task.FromResult(CreateGeminiResponse());
+
         // Read request body to determine type
         var body = request.Content?.ReadAsStringAsync(cancellationToken).Result ?? "";
 
@@ -246,6 +262,134 @@ public class MockOpenAIHandler : DelegatingHandler
                 JsonSerializer.Serialize(responseBody),
                 System.Text.Encoding.UTF8,
                 "application/json")
+        };
+    }
+
+    // =========================================================================
+    // Museum API Mocks
+    // =========================================================================
+
+    private static HttpResponseMessage CreateChicagoResponse()
+    {
+        var json = JsonSerializer.Serialize(new
+        {
+            data = new[]
+            {
+                new { id = 27992, title = "A Sunday on La Grande Jatte", artist_display = "Georges Seurat",
+                      date_display = "1884-1886", medium_display = "Oil on canvas",
+                      image_id = "2d484387-2509-5e8e-2c43-22f9981972eb",
+                      classification_title = "Painting", style_title = "Post-Impressionism",
+                      is_public_domain = true },
+                new { id = 111628, title = "Nighthawks", artist_display = "Edward Hopper",
+                      date_display = "1942", medium_display = "Oil on canvas",
+                      image_id = "831a05de-d3f6-f4fa-a460-23008dd58dda",
+                      classification_title = "Painting", style_title = "American Realism",
+                      is_public_domain = true }
+            }
+        });
+
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+        };
+    }
+
+    private static HttpResponseMessage CreateMetSearchResponse()
+    {
+        var json = JsonSerializer.Serialize(new
+        {
+            total = 2,
+            objectIDs = new[] { 436535, 459027 }
+        });
+
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+        };
+    }
+
+    private static HttpResponseMessage CreateMetObjectResponse()
+    {
+        var json = JsonSerializer.Serialize(new
+        {
+            objectID = 436535,
+            title = "Wheat Field with Cypresses",
+            artistDisplayName = "Vincent van Gogh",
+            objectDate = "1889",
+            medium = "Oil on canvas",
+            classification = "Paintings",
+            department = "European Paintings",
+            primaryImage = "https://images.metmuseum.org/test/original.jpg",
+            primaryImageSmall = "https://images.metmuseum.org/test/small.jpg",
+            objectURL = "https://www.metmuseum.org/art/collection/search/436535"
+        });
+
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+        };
+    }
+
+    private static HttpResponseMessage CreateHarvardResponse()
+    {
+        var json = JsonSerializer.Serialize(new
+        {
+            records = new[]
+            {
+                new
+                {
+                    id = 299843, title = "Self-Portrait Dedicated to Paul Gauguin",
+                    people = new[] { new { name = "Vincent van Gogh" } },
+                    dated = "1888", medium = "Oil on canvas",
+                    classification = "Paintings", culture = "Dutch",
+                    primaryimageurl = "https://nrs.harvard.edu/test.jpg",
+                    url = "https://harvardartmuseums.org/collections/object/299843"
+                }
+            }
+        });
+
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+        };
+    }
+
+    // =========================================================================
+    // Gemini API Mock
+    // =========================================================================
+
+    private static HttpResponseMessage CreateGeminiResponse()
+    {
+        const string tinyPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+        var designJson = JsonSerializer.Serialize(new
+        {
+            styleName = "Natural Elegance",
+            moulding = new { style = "Walnut", color = "Dark Brown", description = "Warm wood frame" },
+            mat = new { style = "Double mat", color = "Cream", description = "Layered presentation" }
+        });
+
+        var json = JsonSerializer.Serialize(new
+        {
+            candidates = new[]
+            {
+                new
+                {
+                    content = new
+                    {
+                        parts = new object[]
+                        {
+                            new { inlineData = new { mimeType = "image/png", data = tinyPng } },
+                            new { text = designJson }
+                        }
+                    }
+                }
+            }
+        });
+
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
         };
     }
 }
