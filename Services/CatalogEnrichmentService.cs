@@ -375,7 +375,7 @@ public class CatalogEnrichmentService
                 }
                 else
                 {
-                    item.ImageAnalyzedAt = DateTime.UtcNow;
+                    // Don't mark as analyzed — leave for retry when API is available
                     result.Failed++;
                 }
 
@@ -482,7 +482,7 @@ public class CatalogEnrichmentService
                 }
                 else
                 {
-                    item.ImageAnalyzedAt = DateTime.UtcNow;
+                    // Don't mark as analyzed — leave for retry when API is available
                     result.Failed++;
                 }
 
