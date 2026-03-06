@@ -8,6 +8,32 @@ public class MuseumArtService
     private readonly string? _harvardApiKey;
     private readonly ILogger<MuseumArtService> _logger;
 
+    // Classifications that are clearly NOT frameable (case-insensitive)
+    private static readonly HashSet<string> NonFrameableClassifications = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Sculpture", "Ceramics", "Pottery", "Vessel", "Vessels",
+        "Textile", "Textiles", "Tapestry", "Costume", "Costumes",
+        "Furniture", "Decorative Arts", "Decorative Art",
+        "Jewelry", "Metalwork", "Glass", "Stained Glass",
+        "Arms and Armor", "Musical Instruments",
+        "Architecture", "Architectural Elements",
+        "Coin", "Coins", "Medal", "Medals", "Numismatics",
+        "Book", "Books", "Manuscript", "Manuscripts",
+        "Basket", "Baskets", "Lacquer", "Enamel",
+        "Implements", "Tools", "Ritual Objects",
+    };
+
+    // Medium keywords that indicate non-frameable 3D objects
+    private static readonly string[] NonFrameableMediumKeywords =
+    {
+        "ceramic", "pottery", "porcelain", "stoneware", "earthenware", "terracotta",
+        "bronze", "marble", "stone", "granite", "limestone", "jade", "ivory",
+        "carved wood", "lacquer", "wood carving",
+        "glass", "blown glass", "stained glass", "cast glass",
+        "iron", "steel", "copper alloy", "silver gilt", "gold leaf on wood",
+        "furniture", "woven", "embroidered", "knitted", "tapestry",
+    };
+
     public MuseumArtService(
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
@@ -20,7 +46,8 @@ public class MuseumArtService
 
     public async Task<MuseumArtSearchResult> SearchAsync(MuseumArtSearchRequest request)
     {
-        var perSource = Math.Max(4, request.PageSize / 3);
+        // Request extra to account for filtering out non-frameable items
+        var perSource = Math.Max(8, (request.PageSize / 2));
         var tasks = new List<Task<List<MuseumArtwork>>>();
 
         tasks.Add(SearchChicagoAsync(request, perSource));
@@ -36,6 +63,13 @@ public class MuseumArtService
             if (t.IsCompletedSuccessfully)
                 allResults.AddRange(t.Result);
         }
+
+        // Filter to only frameable artwork (paintings, prints, drawings, photos, posters)
+        var beforeCount = allResults.Count;
+        allResults = allResults.Where(IsFrameable).ToList();
+        if (beforeCount != allResults.Count)
+            _logger.LogInformation("Filtered {Removed} non-frameable items ({Before} -> {After})",
+                beforeCount - allResults.Count, beforeCount, allResults.Count);
 
         // Interleave results from different sources
         var grouped = allResults.GroupBy(a => a.Source).Select(g => g.ToList()).ToList();
@@ -88,9 +122,10 @@ public class MuseumArtService
             if (!string.IsNullOrWhiteSpace(request.Query))
                 must.Add(new { multi_match = new { query = request.Query, fields = new[] { "title", "artist_display", "style_title", "classification_title", "medium_display" } } });
             else
-                must.Add(new { exists = new { field = "image_id" } });
+                // Default to paintings/prints/drawings when no query specified
+                must.Add(new { multi_match = new { query = "painting drawing print photograph watercolor", fields = new[] { "classification_title", "medium_display" } } });
 
-            // Always require an image
+            // Always require an image and public domain
             must.Add(new { exists = new { field = "image_id" } });
             must.Add(new { term = new Dictionary<string, object> { ["is_public_domain"] = true } });
 
@@ -107,17 +142,6 @@ public class MuseumArtService
             var queryJson = JsonSerializer.Serialize(esQuery);
 
             var url = $"https://api.artic.edu/api/v1/artworks/search?{string.Join("&", queryParts)}&query={Uri.EscapeDataString(queryJson)}";
-
-            // Fallback to simple q= search if ES query is just image+public domain
-            if (!string.IsNullOrWhiteSpace(request.Query) && string.IsNullOrWhiteSpace(request.Medium) && string.IsNullOrWhiteSpace(request.Classification) && string.IsNullOrWhiteSpace(request.Style))
-            {
-                url = $"https://api.artic.edu/api/v1/artworks/search?q={Uri.EscapeDataString(request.Query)}&fields={fields}&limit={limit}&query[term][is_public_domain]=true";
-            }
-            else if (string.IsNullOrWhiteSpace(request.Query) && string.IsNullOrWhiteSpace(request.Medium) && string.IsNullOrWhiteSpace(request.Classification) && string.IsNullOrWhiteSpace(request.Style))
-            {
-                // Default: popular artworks with images
-                url = $"https://api.artic.edu/api/v1/artworks?fields={fields}&limit={limit}&page={request.Page}";
-            }
 
             var response = await client.GetStringAsync(url);
             using var doc = JsonDocument.Parse(response);
@@ -273,6 +297,9 @@ public class MuseumArtService
 
             if (!string.IsNullOrWhiteSpace(request.Classification))
                 queryParams.Add($"classification={Uri.EscapeDataString(request.Classification)}");
+            else
+                // Default to frameable types only
+                queryParams.Add("classification=Paintings|Drawings|Prints|Photographs|Posters");
 
             var url = $"https://api.harvardartmuseums.org/object?{string.Join("&", queryParams)}";
             var response = await client.GetStringAsync(url);
@@ -312,6 +339,31 @@ public class MuseumArtService
             _logger.LogWarning(ex, "Harvard API search failed");
         }
         return results;
+    }
+
+    /// <summary>
+    /// Returns true if the artwork is flat/2D and suitable for framing.
+    /// Filters out sculpture, pottery, ceramics, textiles, furniture, etc.
+    /// </summary>
+    private static bool IsFrameable(MuseumArtwork artwork)
+    {
+        // Reject by classification
+        if (!string.IsNullOrEmpty(artwork.Classification) &&
+            NonFrameableClassifications.Contains(artwork.Classification))
+            return false;
+
+        // Reject by medium keywords (case-insensitive substring match)
+        if (!string.IsNullOrEmpty(artwork.Medium))
+        {
+            var medium = artwork.Medium.ToLowerInvariant();
+            foreach (var keyword in NonFrameableMediumKeywords)
+            {
+                if (medium.Contains(keyword))
+                    return false;
+            }
+        }
+
+        return true;
     }
 }
 
