@@ -16,6 +16,12 @@ builder.Services.AddHttpClient<OpenAIFramingService>();
 // Gemini framing service (HttpClient factory pattern)
 builder.Services.AddHttpClient<GeminiFramingService>();
 
+// Leonardo.ai framing service (HttpClient factory pattern)
+builder.Services.AddHttpClient<LeonardoFramingService>();
+
+// Stability AI framing service (HttpClient factory pattern)
+builder.Services.AddHttpClient<StabilityFramingService>();
+
 // Museum art search service
 builder.Services.AddSingleton<MuseumArtService>();
 

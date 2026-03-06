@@ -121,6 +121,16 @@ test.describe('API Endpoints', () => {
     expect(response.status()).toBe(400);
   });
 
+  test('POST /Home/LeonardoFrameOne without image returns 400', async ({ request }) => {
+    const response = await request.post('/Home/LeonardoFrameOne');
+    expect(response.status()).toBe(400);
+  });
+
+  test('POST /Home/StabilityFrameOne without image returns 400', async ({ request }) => {
+    const response = await request.post('/Home/StabilityFrameOne');
+    expect(response.status()).toBe(400);
+  });
+
   test('GET /Training returns training page', async ({ request }) => {
     const response = await request.get('/Training');
     expect(response.status()).toBe(200);

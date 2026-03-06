@@ -595,4 +595,120 @@ public class HomeControllerTests : IClassFixture<TestWebApplicationFactory>
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
+
+    // =========================================================================
+    // Leonardo Framing
+    // =========================================================================
+
+    [Fact]
+    public async Task LeonardoFrameOne_ValidInput_ReturnsFrameOption()
+    {
+        var analysis = new
+        {
+            artStyle = "Impressionist",
+            medium = "Oil",
+            subjectMatter = "Landscape",
+            era = "Contemporary",
+            dominantColors = new[] { "#4A6741" },
+            colorTemperature = "warm",
+            valueRange = "full-range",
+            textureQuality = "textured",
+            mood = "serene",
+            recommendations = new[]
+            {
+                new
+                {
+                    tier = "Natural Harmony", tierName = "Natural Harmony",
+                    mouldingStyle = "Wood", mouldingColor = "Oak",
+                    mouldingWidth = "1.5", matColor = "White", matStyle = "Single",
+                    reasoning = "Test"
+                }
+            }
+        };
+
+        using var content = new MultipartFormDataContent();
+        var imageContent = new ByteArrayContent(TinyPng);
+        imageContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        content.Add(imageContent, "image", "test.png");
+        content.Add(new StringContent("0"), "styleIndex");
+        content.Add(new StringContent(JsonSerializer.Serialize(analysis)), "analysisJson");
+
+        var response = await _client.PostAsync("/Home/LeonardoFrameOne", content);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+        Assert.True(doc.RootElement.TryGetProperty("styleName", out _), "Should have styleName");
+        Assert.True(doc.RootElement.TryGetProperty("framedImageBase64", out _), "Should have framedImageBase64");
+    }
+
+    [Fact]
+    public async Task LeonardoFrameOne_NoImage_ReturnsBadRequest()
+    {
+        using var content = new MultipartFormDataContent();
+        content.Add(new StringContent("0"), "styleIndex");
+        content.Add(new StringContent("{}"), "analysisJson");
+
+        var response = await _client.PostAsync("/Home/LeonardoFrameOne", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    // =========================================================================
+    // Stability Framing
+    // =========================================================================
+
+    [Fact]
+    public async Task StabilityFrameOne_ValidInput_ReturnsFrameOption()
+    {
+        var analysis = new
+        {
+            artStyle = "Impressionist",
+            medium = "Oil",
+            subjectMatter = "Landscape",
+            era = "Contemporary",
+            dominantColors = new[] { "#4A6741" },
+            colorTemperature = "warm",
+            valueRange = "full-range",
+            textureQuality = "textured",
+            mood = "serene",
+            recommendations = new[]
+            {
+                new
+                {
+                    tier = "Natural Harmony", tierName = "Natural Harmony",
+                    mouldingStyle = "Wood", mouldingColor = "Oak",
+                    mouldingWidth = "1.5", matColor = "White", matStyle = "Single",
+                    reasoning = "Test"
+                }
+            }
+        };
+
+        using var content = new MultipartFormDataContent();
+        var imageContent = new ByteArrayContent(TinyPng);
+        imageContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        content.Add(imageContent, "image", "test.png");
+        content.Add(new StringContent("0"), "styleIndex");
+        content.Add(new StringContent(JsonSerializer.Serialize(analysis)), "analysisJson");
+
+        var response = await _client.PostAsync("/Home/StabilityFrameOne", content);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+        Assert.True(doc.RootElement.TryGetProperty("styleName", out _), "Should have styleName");
+        Assert.True(doc.RootElement.TryGetProperty("framedImageBase64", out _), "Should have framedImageBase64");
+        Assert.True(doc.RootElement.TryGetProperty("products", out var products), "Should have products");
+        Assert.True(products.GetArrayLength() >= 1, "Should have product details");
+    }
+
+    [Fact]
+    public async Task StabilityFrameOne_NoImage_ReturnsBadRequest()
+    {
+        using var content = new MultipartFormDataContent();
+        content.Add(new StringContent("0"), "styleIndex");
+        content.Add(new StringContent("{}"), "analysisJson");
+
+        var response = await _client.PostAsync("/Home/StabilityFrameOne", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
 }

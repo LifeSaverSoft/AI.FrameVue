@@ -37,6 +37,11 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
                 ["OpenAI:GenerationModel"] = "gpt-image-1",
                 ["Gemini:ApiKey"] = "test-gemini-key",
                 ["Gemini:GenerationModel"] = "gemini-2.5-flash-image",
+                ["Leonardo:ApiKey"] = "test-leonardo-key",
+                ["Leonardo:Model"] = "28aeddf8-bd19-4803-80fc-79602d1a9989",
+                ["Stability:ApiKey"] = "test-stability-key",
+                ["Stability:Model"] = "sd3.5-large",
+                ["Stability:Strength"] = "0.6",
                 ["Training:AdminKey"] = "test-admin-key",
                 ["KnowledgeBase:Path"] = _knowledgeBasePath,
                 ["ConnectionStrings:DefaultConnection"] = $"Data Source={_dbPath}"
@@ -57,6 +62,14 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
 
             // Replace the HttpClient for GeminiFramingService with mock handler
             services.AddHttpClient<GeminiFramingService>()
+                .ConfigurePrimaryHttpMessageHandler(() => new MockOpenAIHandler());
+
+            // Replace the HttpClient for LeonardoFramingService with mock handler
+            services.AddHttpClient<LeonardoFramingService>()
+                .ConfigurePrimaryHttpMessageHandler(() => new MockOpenAIHandler());
+
+            // Replace the HttpClient for StabilityFramingService with mock handler
+            services.AddHttpClient<StabilityFramingService>()
                 .ConfigurePrimaryHttpMessageHandler(() => new MockOpenAIHandler());
 
             // Replace the generic HttpClient factory handler (used by CatalogEnrichmentService, AnalyzePrint, MuseumArtService)

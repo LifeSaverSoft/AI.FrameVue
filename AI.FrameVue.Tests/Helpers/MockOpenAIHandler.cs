@@ -28,6 +28,22 @@ public class MockOpenAIHandler : DelegatingHandler
         if (url.Contains("generativelanguage.googleapis.com"))
             return Task.FromResult(CreateGeminiResponse());
 
+        // Leonardo API mocks
+        if (url.Contains("cloud.leonardo.ai") && url.Contains("init-image"))
+            return Task.FromResult(CreateLeonardoInitImageResponse());
+        if (url.Contains("cloud.leonardo.ai") && url.Contains("mock-presigned-url"))
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
+        if (url.Contains("cloud.leonardo.ai") && url.Contains("generations/") && request.Method == HttpMethod.Get)
+            return Task.FromResult(CreateLeonardoPollResponse());
+        if (url.Contains("cloud.leonardo.ai") && url.Contains("generations") && request.Method == HttpMethod.Post)
+            return Task.FromResult(CreateLeonardoGenerationResponse());
+        if (url.Contains("cdn.leonardo.ai"))
+            return Task.FromResult(CreateTinyPngImageResponse());
+
+        // Stability API mock
+        if (url.Contains("api.stability.ai"))
+            return Task.FromResult(CreateStabilityResponse());
+
         // Read request body to determine type
         var body = request.Content?.ReadAsStringAsync(cancellationToken).Result ?? "";
 
@@ -385,6 +401,101 @@ public class MockOpenAIHandler : DelegatingHandler
                     }
                 }
             }
+        });
+
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+        };
+    }
+
+    // =========================================================================
+    // Leonardo API Mocks
+    // =========================================================================
+
+    private static HttpResponseMessage CreateLeonardoInitImageResponse()
+    {
+        var json = JsonSerializer.Serialize(new
+        {
+            uploadInitImage = new
+            {
+                id = "test-init-image-id",
+                url = "https://cloud.leonardo.ai/mock-presigned-url",
+                fields = "{\"key\":\"test-key\",\"policy\":\"test-policy\"}"
+            }
+        });
+
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+        };
+    }
+
+    private static HttpResponseMessage CreateLeonardoGenerationResponse()
+    {
+        var json = JsonSerializer.Serialize(new
+        {
+            sdGenerationJob = new
+            {
+                generationId = "test-generation-id"
+            }
+        });
+
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+        };
+    }
+
+    private static HttpResponseMessage CreateLeonardoPollResponse()
+    {
+        var json = JsonSerializer.Serialize(new
+        {
+            generations_by_pk = new
+            {
+                status = "COMPLETE",
+                generated_images = new[]
+                {
+                    new { url = "https://cdn.leonardo.ai/mock-image.png" }
+                }
+            }
+        });
+
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+        };
+    }
+
+    /// <summary>
+    /// Returns a tiny 1x1 PNG as raw image bytes (for CDN image download mocks).
+    /// </summary>
+    private static HttpResponseMessage CreateTinyPngImageResponse()
+    {
+        var pngBytes = Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
+
+        var response = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new ByteArrayContent(pngBytes)
+        };
+        response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+        return response;
+    }
+
+    // =========================================================================
+    // Stability API Mock
+    // =========================================================================
+
+    private static HttpResponseMessage CreateStabilityResponse()
+    {
+        const string tinyPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+        var json = JsonSerializer.Serialize(new
+        {
+            image = tinyPng,
+            finish_reason = "SUCCESS",
+            seed = 12345
         });
 
         return new HttpResponseMessage(HttpStatusCode.OK)

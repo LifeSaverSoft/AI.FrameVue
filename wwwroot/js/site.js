@@ -100,6 +100,14 @@
         var geminiGrid = document.getElementById('gemini-results-grid');
         if (geminiSection) geminiSection.classList.add('hidden');
         if (geminiGrid) geminiGrid.innerHTML = '';
+        var leonardoSection = document.getElementById('leonardo-section');
+        var leonardoGrid = document.getElementById('leonardo-results-grid');
+        if (leonardoSection) leonardoSection.classList.add('hidden');
+        if (leonardoGrid) leonardoGrid.innerHTML = '';
+        var stabilitySection = document.getElementById('stability-section');
+        var stabilityGrid = document.getElementById('stability-results-grid');
+        if (stabilitySection) stabilitySection.classList.add('hidden');
+        if (stabilityGrid) stabilityGrid.innerHTML = '';
         currentAnalysis = null;
         currentFile = null;
         generatedOptions = [null, null, null];
@@ -255,8 +263,10 @@
             if (compareBtn) compareBtn.disabled = false;
         }
 
-        // Fire Gemini calls in parallel
+        // Fire all alternative provider calls in parallel
         generateGeminiFrames(file, analysisJson, analysis, tierNames);
+        generateLeonardoFrames(file, analysisJson, analysis, tierNames);
+        generateStabilityFrames(file, analysisJson, analysis, tierNames);
     }
 
     async function generateOneFrame(file, i, analysisJson, analysis, placeholder, tierNames) {
@@ -346,6 +356,114 @@
             console.error('Gemini frame generation failed for style ' + i + ':', err);
             placeholder.querySelector('.placeholder-content').innerHTML =
                 '<p style="color:var(--error);">Gemini generation failed.</p>';
+        }
+    }
+
+    // === Leonardo frame generation ===
+
+    async function generateLeonardoFrames(file, analysisJson, analysis, tierNames) {
+        var leonardoSection = document.getElementById('leonardo-section');
+        var leonardoGrid = document.getElementById('leonardo-results-grid');
+        if (!leonardoSection || !leonardoGrid) return;
+
+        leonardoSection.classList.remove('hidden');
+        leonardoGrid.innerHTML = '';
+
+        var placeholders = [];
+        for (var i = 0; i < 3; i++) {
+            var displayName = tierNames[i] || defaultTierNames[i];
+            var placeholder = createPlaceholderCard(displayName, i + 1);
+            leonardoGrid.appendChild(placeholder);
+            placeholders.push(placeholder);
+        }
+
+        var promises = [0, 1, 2].map(function(i) {
+            return generateOneLeonardoFrame(file, i, analysisJson, analysis, placeholders[i], leonardoGrid);
+        });
+
+        await Promise.allSettled(promises);
+    }
+
+    async function generateOneLeonardoFrame(file, i, analysisJson, analysis, placeholder, leonardoGrid) {
+        try {
+            var formData = new FormData();
+            formData.append('image', file);
+            formData.append('styleIndex', i);
+            formData.append('analysisJson', analysisJson);
+
+            var response = await fetch('/Home/LeonardoFrameOne', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                var errData = await response.json().catch(function() { return {}; });
+                placeholder.querySelector('.placeholder-content').innerHTML =
+                    '<p style="color:var(--error);">' + (errData.error || 'Leonardo generation failed.') + '</p>';
+                return;
+            }
+
+            var option = await response.json();
+            var card = createFrameCard(option, i + 1);
+            leonardoGrid.replaceChild(card, placeholder);
+        } catch (err) {
+            console.error('Leonardo frame generation failed for style ' + i + ':', err);
+            placeholder.querySelector('.placeholder-content').innerHTML =
+                '<p style="color:var(--error);">Leonardo generation failed.</p>';
+        }
+    }
+
+    // === Stability frame generation ===
+
+    async function generateStabilityFrames(file, analysisJson, analysis, tierNames) {
+        var stabilitySection = document.getElementById('stability-section');
+        var stabilityGrid = document.getElementById('stability-results-grid');
+        if (!stabilitySection || !stabilityGrid) return;
+
+        stabilitySection.classList.remove('hidden');
+        stabilityGrid.innerHTML = '';
+
+        var placeholders = [];
+        for (var i = 0; i < 3; i++) {
+            var displayName = tierNames[i] || defaultTierNames[i];
+            var placeholder = createPlaceholderCard(displayName, i + 1);
+            stabilityGrid.appendChild(placeholder);
+            placeholders.push(placeholder);
+        }
+
+        var promises = [0, 1, 2].map(function(i) {
+            return generateOneStabilityFrame(file, i, analysisJson, analysis, placeholders[i], stabilityGrid);
+        });
+
+        await Promise.allSettled(promises);
+    }
+
+    async function generateOneStabilityFrame(file, i, analysisJson, analysis, placeholder, stabilityGrid) {
+        try {
+            var formData = new FormData();
+            formData.append('image', file);
+            formData.append('styleIndex', i);
+            formData.append('analysisJson', analysisJson);
+
+            var response = await fetch('/Home/StabilityFrameOne', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                var errData = await response.json().catch(function() { return {}; });
+                placeholder.querySelector('.placeholder-content').innerHTML =
+                    '<p style="color:var(--error);">' + (errData.error || 'Stability generation failed.') + '</p>';
+                return;
+            }
+
+            var option = await response.json();
+            var card = createFrameCard(option, i + 1);
+            stabilityGrid.replaceChild(card, placeholder);
+        } catch (err) {
+            console.error('Stability frame generation failed for style ' + i + ':', err);
+            placeholder.querySelector('.placeholder-content').innerHTML =
+                '<p style="color:var(--error);">Stability generation failed.</p>';
         }
     }
 

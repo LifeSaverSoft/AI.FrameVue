@@ -5,10 +5,10 @@
 - **Backend**: ASP.NET Core 10.0, C# 13, .NET 10
 - **Frontend**: Vanilla JavaScript (IIFE pattern), HTML5/CSS3 — NOT Vue.js despite the name
 - **Database**: SQLite (EF Core 10.0 with Migrations — auto-applied at startup via `Database.Migrate()`)
-- **AI**: OpenAI API — `gpt-4o-mini` (text analysis), `gpt-4.1` + `image_generation` tool (image generation via Responses API); Google Gemini `gemini-2.5-flash-image` (alternative frame mockup generation)
+- **AI**: OpenAI API — `gpt-4o-mini` (text analysis), `gpt-4.1` + `image_generation` tool (image generation via Responses API); Google Gemini `gemini-2.5-flash-image` (alternative frame mockup generation); Leonardo.ai FLUX Kontext (alternative frame mockup generation); Stability AI SD 3.5 Large (alternative frame mockup generation)
 - **Hosting**: IIS on Windows Server, deployed via rsync over SMB
 - **Source Control**: Git + GitHub
-- **Testing**: xUnit + WebApplicationFactory + MockOpenAIHandler (79 unit tests), Playwright E2E tests (107 tests)
+- **Testing**: xUnit + WebApplicationFactory + MockOpenAIHandler (83 unit tests), Playwright E2E tests (109 tests)
 - **E2E**: Playwright (Node.js + TypeScript) in `e2e/` directory
 
 ## Project Overview
@@ -49,6 +49,18 @@
 - `GeminiFramingService.cs` — typed HttpClient, parses `candidates[0].content.parts` for inline image + JSON text
 - Configured via `Gemini:ApiKey` and `Gemini:GenerationModel` in appsettings
 
+### Leonardo.ai API (Alternative)
+- Model: FLUX Kontext (`28aeddf8-bd19-4803-80fc-79602d1a9989`) — instruction-based image editing
+- Async workflow: upload reference image → create generation → poll for completion → download result
+- `LeonardoFramingService.cs` — typed HttpClient, base `https://cloud.leonardo.ai/api/rest/v1`
+- Configured via `Leonardo:ApiKey` and `Leonardo:Model` in appsettings
+
+### Stability AI API (Alternative)
+- Model: SD 3.5 Large — image-to-image generation
+- Synchronous workflow: POST multipart form with image + prompt → response contains base64 image
+- `StabilityFramingService.cs` — typed HttpClient, base `https://api.stability.ai`
+- Configured via `Stability:ApiKey`, `Stability:Model`, `Stability:Strength` in appsettings
+
 ### Museum Art APIs
 - `MuseumArtService.cs` — searches 3 free public-domain museum APIs in parallel, interleaves results
 - Art Institute of Chicago (`api.artic.edu`), Metropolitan Museum of Art (`collectionapi.metmuseum.org`), Harvard Art Museums (`api.harvardartmuseums.org` — requires API key via `MuseumApi:HarvardApiKey`)
@@ -59,11 +71,13 @@
 |------|---------|
 | `Services/OpenAIFramingService.cs` | Core AI: two-pass analysis, knowledge injection, image generation, wall refine, color matching |
 | `Services/GeminiFramingService.cs` | Alternative AI: Gemini frame mockup generation, parses image+text response |
+| `Services/LeonardoFramingService.cs` | Alternative AI: Leonardo.ai FLUX Kontext frame mockup generation (async upload+poll) |
+| `Services/StabilityFramingService.cs` | Alternative AI: Stability AI SD3.5 image-to-image frame mockup generation |
 | `Services/MuseumArtService.cs` | Museum API search: Chicago, Met, Harvard — parallel queries, interleaved results |
 | `Services/KnowledgeBaseService.cs` | Knowledge base CRUD, file watcher, SQLite catalog queries, prompt building, color-distance matching, server-side catalog product matching for framing recommendations |
 | `Services/CatalogImportService.cs` | SQL Server -> SQLite import (mouldings/mats only), art print search/filter/browse |
 | `Services/CatalogEnrichmentService.cs` | AI image analysis via OpenAI vision for catalog items and art prints |
-| `Controllers/HomeController.cs` | Main app: Analyze, FrameOne, GeminiFrameOne, WallPreview, WallRefine, SourceProducts, Feedback, StyleCount, BrowseArtPrints, ArtPrintFilters, DiscoverPrints, SimilarPrints, AnalyzePrint, AnalyzeRoom, SearchMuseumArt |
+| `Controllers/HomeController.cs` | Main app: Analyze, FrameOne, GeminiFrameOne, LeonardoFrameOne, StabilityFrameOne, WallPreview, WallRefine, SourceProducts, Feedback, StyleCount, BrowseArtPrints, ArtPrintFilters, DiscoverPrints, SimilarPrints, AnalyzePrint, AnalyzeRoom, SearchMuseumArt |
 | `Controllers/TrainingController.cs` | Admin: Rules/Guides/Examples CRUD, catalog import, enrichment, browse, art print management |
 | `Views/Home/Index.cshtml` | Main app UI — upload, browse, discover, framing, comparison, feedback, wall preview, print detail modal |
 | `Views/Training/Index.cshtml` | Training admin — standalone page with 7 tabs: Rules, Guides, Examples, Browse Catalog, Import, AI Enrichment, Art Prints |
@@ -128,6 +142,9 @@
 31. Gemini frame mockup generation — `GeminiFramingService` using `gemini-2.5-flash-image`; generates 3 tiers in parallel alongside OpenAI for side-by-side comparison
 32. Parallel frame generation — OpenAI's 3 Good/Better/Best tiers now fire in parallel instead of sequentially
 33. .NET 10 upgrade — project upgraded from .NET 8.0 to .NET 10.0; EF Core 10.0.3, Microsoft.Data.SqlClient 6.1.4
+34. Leonardo.ai frame mockup generation — `LeonardoFramingService` using FLUX Kontext model; async upload+poll workflow; 3 tiers in parallel
+35. Stability AI frame mockup generation — `StabilityFramingService` using SD 3.5 Large; synchronous image-to-image; 3 tiers in parallel
+36. Multi-provider comparison — OpenAI, Gemini, Leonardo, Stability all fire in parallel for side-by-side comparison
 
 ## Current Status (Last Updated: 2026-03-06)
 
@@ -148,17 +165,18 @@
 - Art print cards show styled placeholders with title/artist/genre when S3 images unavailable
 - Museum art gallery — browse/search public-domain art from 3 museum APIs
 - Gemini side-by-side — frame mockups generated by both OpenAI and Gemini for comparison
-- Parallel frame generation — all 3 tiers fire simultaneously
+- Leonardo.ai — FLUX Kontext frame mockups (async generation with polling)
+- Stability AI — SD 3.5 Large image-to-image frame mockups (synchronous)
+- Multi-provider comparison — OpenAI, Gemini, Leonardo, Stability all fire in parallel with labeled sections
+- Parallel frame generation — all 3 tiers fire simultaneously per provider
 
 ### Where We Left Off
-- Upgraded project from .NET 8.0 to .NET 10.0 (EF Core 10.0.3, SqlClient 6.1.4)
-- Added museum art gallery (Art Institute of Chicago, Met Museum, Harvard) with tabbed browse UI
-- Added Gemini `gemini-2.5-flash-image` as alternative frame mockup generator (parallel with OpenAI)
-- Switched OpenAI generation model from `gpt-4o` to `gpt-4.1`
-- OpenAI frame generation now parallel (was sequential)
-- Fixed `MuseumArtService` crash on empty results (`.Max()` on empty sequence)
-- Added E2E global setup to auto-seed art prints before tests
-- 79 unit tests + 107 Playwright E2E tests passing
+- Added Leonardo.ai FLUX Kontext as alternative frame mockup generator (async upload+poll workflow)
+- Added Stability AI SD 3.5 Large as alternative frame mockup generator (synchronous img2img)
+- All 4 providers (OpenAI, Gemini, Leonardo, Stability) fire in parallel for side-by-side comparison
+- Frontend shows labeled sections for each provider with colored badges (green=OpenAI, blue=Gemini, purple=Leonardo, orange=Stability)
+- Config keys: `Leonardo:ApiKey`, `Leonardo:Model`, `Stability:ApiKey`, `Stability:Model`, `Stability:Strength`
+- 83 unit tests + 109 Playwright E2E tests passing
 
 ### What Needs to Be Done Next
 1. **Deploy .NET 10 upgrade to production** — server needs .NET 10 runtime installed first
@@ -189,7 +207,7 @@
 ## Test Suite
 - Location: `AI.FrameVue.Tests/`
 - Run: `dotnet test AI.FrameVue.Tests/` or `make test/unit`
-- 79 tests: HomeController (35), TrainingController (18), KnowledgeBaseService (9), CatalogImportService (17)
+- 83 tests: HomeController (39), TrainingController (18), KnowledgeBaseService (9), CatalogImportService (17)
 - Uses `TestWebApplicationFactory` with in-memory SQLite, `MockOpenAIHandler` for all OpenAI/Gemini/Museum API calls
 - All tests run without network access (~850ms)
 
@@ -199,7 +217,7 @@
 - Config: `e2e/playwright.config.ts` — targets `http://localhost:5191`, auto-starts `dotnet run`
 - Global setup: `e2e/global-setup.ts` — auto-seeds art prints via `/Training/SeedArtPrints` if DB is empty
 - Specs: `e2e/tests/*.spec.ts` — one file per major app section
-- 107 tests across 9 spec files: home, upload-analyze, browse-prints (museum + catalog tabs), discovery-wizard, room-advisor, guide, training-admin, browse-catalog, api-endpoints
+- 109 tests across 9 spec files: home, upload-analyze, browse-prints (museum + catalog tabs), discovery-wizard, room-advisor, guide, training-admin, browse-catalog, api-endpoints
 - Covers: Home/mode-selector, Upload flow, Museum art search, Catalog browse, Discovery wizard, Room Advisor, Print detail modal, Training admin auth/tabs/CRUD, User Guide, all API endpoints
 - **Rule**: Every new feature MUST include new or updated Playwright specs
 - Test fixtures: `e2e/fixtures/test-artwork.png`, `e2e/fixtures/test-room.png`

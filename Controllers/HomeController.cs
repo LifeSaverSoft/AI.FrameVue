@@ -13,6 +13,8 @@ public class HomeController : Controller
     private readonly ILogger<HomeController> _logger;
     private readonly OpenAIFramingService _framingService;
     private readonly GeminiFramingService _geminiService;
+    private readonly LeonardoFramingService _leonardoService;
+    private readonly StabilityFramingService _stabilityService;
     private readonly CatalogImportService _catalogImport;
     private readonly KnowledgeBaseService _knowledgeBase;
     private readonly MuseumArtService _museumArt;
@@ -22,6 +24,8 @@ public class HomeController : Controller
         ILogger<HomeController> logger,
         OpenAIFramingService framingService,
         GeminiFramingService geminiService,
+        LeonardoFramingService leonardoService,
+        StabilityFramingService stabilityService,
         CatalogImportService catalogImport,
         KnowledgeBaseService knowledgeBase,
         MuseumArtService museumArt,
@@ -30,6 +34,8 @@ public class HomeController : Controller
         _logger = logger;
         _framingService = framingService;
         _geminiService = geminiService;
+        _leonardoService = leonardoService;
+        _stabilityService = stabilityService;
         _catalogImport = catalogImport;
         _knowledgeBase = knowledgeBase;
         _museumArt = museumArt;
@@ -234,6 +240,90 @@ public class HomeController : Controller
         {
             _logger.LogError(ex, "Gemini failed to frame image for style index {StyleIndex}", styleIndex);
             return StatusCode(500, new { error = "Failed to generate Gemini framing option." });
+        }
+    }
+
+    /// <summary>
+    /// Generate a single framed mockup using Leonardo.ai.
+    /// </summary>
+    [HttpPost]
+    [RequestSizeLimit(20 * 1024 * 1024)]
+    public async Task<IActionResult> LeonardoFrameOne(IFormFile image, int styleIndex, string analysisJson)
+    {
+        if (!_leonardoService.IsConfigured)
+            return BadRequest(new { error = "Leonardo API is not configured." });
+
+        if (image == null || image.Length == 0)
+            return BadRequest(new { error = "No image was uploaded." });
+
+        EnhancedImageAnalysis analysis;
+        try
+        {
+            analysis = JsonSerializer.Deserialize<EnhancedImageAnalysis>(analysisJson, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            }) ?? new EnhancedImageAnalysis();
+        }
+        catch
+        {
+            analysis = new EnhancedImageAnalysis();
+        }
+
+        using var ms = new MemoryStream();
+        await image.CopyToAsync(ms);
+        var imageData = ms.ToArray();
+
+        try
+        {
+            var option = await _leonardoService.FrameImageOneAsync(imageData, image.ContentType, styleIndex, analysis);
+            return Json(option);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Leonardo failed to frame image for style index {StyleIndex}", styleIndex);
+            return StatusCode(500, new { error = "Failed to generate Leonardo framing option." });
+        }
+    }
+
+    /// <summary>
+    /// Generate a single framed mockup using Stability AI.
+    /// </summary>
+    [HttpPost]
+    [RequestSizeLimit(20 * 1024 * 1024)]
+    public async Task<IActionResult> StabilityFrameOne(IFormFile image, int styleIndex, string analysisJson)
+    {
+        if (!_stabilityService.IsConfigured)
+            return BadRequest(new { error = "Stability API is not configured." });
+
+        if (image == null || image.Length == 0)
+            return BadRequest(new { error = "No image was uploaded." });
+
+        EnhancedImageAnalysis analysis;
+        try
+        {
+            analysis = JsonSerializer.Deserialize<EnhancedImageAnalysis>(analysisJson, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            }) ?? new EnhancedImageAnalysis();
+        }
+        catch
+        {
+            analysis = new EnhancedImageAnalysis();
+        }
+
+        using var ms = new MemoryStream();
+        await image.CopyToAsync(ms);
+        var imageData = ms.ToArray();
+
+        try
+        {
+            var option = await _stabilityService.FrameImageOneAsync(imageData, image.ContentType, styleIndex, analysis);
+            return Json(option);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Stability failed to frame image for style index {StyleIndex}", styleIndex);
+            return StatusCode(500, new { error = "Failed to generate Stability framing option." });
         }
     }
 
